@@ -58,6 +58,7 @@ const ENTRY_LABELS: Record<EntryType, string> = {
   next_step: "Next step",
   worklog: "Worklog",
   status: "Status",
+  estimate: "Estimate",
 };
 
 const TYPE_BADGE: Record<
@@ -72,6 +73,7 @@ const TYPE_BADGE: Record<
   note: "outline",
   worklog: "secondary",
   status: "info",
+  estimate: "secondary",
 };
 
 const TYPE_DOT: Record<EntryType, string> = {
@@ -83,7 +85,20 @@ const TYPE_DOT: Record<EntryType, string> = {
   note: "bg-muted-foreground",
   worklog: "bg-cyan-500",
   status: "bg-blue-500",
+  estimate: "bg-fuchsia-500",
 };
+
+const PROTECTED_ENTRY_TYPES = new Set<EntryType>([
+  "progress",
+  "worklog",
+  "status",
+  "estimate",
+]);
+const SYSTEM_FACT_ENTRY_TYPES = new Set<EntryType>([
+  "worklog",
+  "status",
+  "estimate",
+]);
 
 export function Timeline({
   entries,
@@ -295,6 +310,8 @@ function TimelineEntry({
   const edited = entry.updatedAt !== entry.createdAt;
   const long = isLongEntry(entry.contentMarkdown);
   const links = extractLinkPreviews(entry.contentMarkdown);
+  const canEdit = !SYSTEM_FACT_ENTRY_TYPES.has(entry.entryType);
+  const canTrash = !PROTECTED_ENTRY_TYPES.has(entry.entryType);
 
   useEffect(() => {
     let cancelled = false;
@@ -538,14 +555,16 @@ function TimelineEntry({
 
       {!editing && (
         <div className="flex items-start gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
-          <Button
-            aria-label="Edit entry"
-            onClick={() => setEditing(true)}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <Pencil />
-          </Button>
+          {canEdit && (
+            <Button
+              aria-label="Edit entry"
+              onClick={() => setEditing(true)}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <Pencil />
+            </Button>
+          )}
           <Button
             aria-label="Revision history"
             onClick={() => void onHistory(entry.id)}
@@ -554,14 +573,16 @@ function TimelineEntry({
           >
             <History />
           </Button>
-          <Button
-            aria-label="Move entry to trash"
-            onClick={() => void onTrash(entry.id)}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <Trash2 />
-          </Button>
+          {canTrash && (
+            <Button
+              aria-label="Move entry to trash"
+              onClick={() => void onTrash(entry.id)}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <Trash2 />
+            </Button>
+          )}
         </div>
       )}
 

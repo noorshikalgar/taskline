@@ -30,6 +30,14 @@ vi.mock("./lib/api", () => ({
   },
 }));
 
+vi.mock("@tauri-apps/plugin-updater", () => ({
+  check: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("@tauri-apps/plugin-process", () => ({
+  relaunch: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { api } from "./lib/api";
 
 const task: Task = {
@@ -38,6 +46,7 @@ const task: Task = {
   descriptionMarkdown: "",
   status: "active",
   nextStep: null,
+  estimatedMinutes: null,
   folderId: null,
   createdAt: "2026-06-05T00:00:00Z",
   updatedAt: "2026-06-05T00:00:00Z",

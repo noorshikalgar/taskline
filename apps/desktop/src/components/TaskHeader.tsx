@@ -1,8 +1,16 @@
-import { Clock4, Pause, Play } from "lucide-react";
-import { KeyboardEvent, useEffect, useRef, useState } from "react";
+import { Calculator, Clock4, Pause, Play } from "lucide-react";
+import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { LogTimeDialog, type LogTimeInput } from "@/components/LogTimeDialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
@@ -13,7 +21,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { formatDuration } from "@/lib/duration";
+import { formatDuration, parseDuration } from "@/lib/duration";
 import { STATUS_DOT, STATUS_LABEL, STATUS_ORDER } from "@/lib/status";
 import { type Task, type TaskStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -24,6 +32,7 @@ interface Props {
   totalMinutes: number;
   pendingTitleEdit?: boolean;
   onLogTime: (input: LogTimeInput) => Promise<void>;
+  onEstimateChange?: (minutes: number | null) => Promise<void>;
   onPendingTitleEditConsumed?: () => void;
   onStatusChange?: (status: TaskStatus) => Promise<void>;
   onUpdate: (task: Task) => Promise<void>;
@@ -37,6 +46,7 @@ export function TaskHeader({
   totalMinutes,
   pendingTitleEdit,
   onLogTime,
+  onEstimateChange,
   onPendingTitleEditConsumed,
   onStatusChange,
   onUpdate,
@@ -47,6 +57,7 @@ export function TaskHeader({
   );
   const [statusOpen, setStatusOpen] = useState(false);
   const [logTimeOpen, setLogTimeOpen] = useState(false);
+  const [estimateOpen, setEstimateOpen] = useState(false);
   const titleInput = useRef<HTMLInputElement>(null);
   const titleInputMounted = useRef(false);
 
@@ -262,11 +273,46 @@ export function TaskHeader({
           </TooltipTrigger>
           <TooltipContent>Record time spent on this task</TooltipContent>
         </Tooltip>
+        <span className="ml-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Estimate
+        </span>
+        <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2 text-xs text-foreground">
+          <Calculator className="size-3 text-muted-foreground" />
+          <span className="font-mono text-[11px]">
+            {task.estimatedMinutes
+              ? formatDuration(task.estimatedMinutes)
+              : "No estimate"}
+          </span>
+        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              aria-label="Set estimate"
+              className="h-7 gap-1 px-2 text-xs"
+              onClick={() => setEstimateOpen(true)}
+              size="sm"
+              variant="outline"
+            >
+              <Calculator className="size-3" />
+              Estimate
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Set expected time for this task</TooltipContent>
+        </Tooltip>
       </div>
       <LogTimeDialog
         onOpenChange={setLogTimeOpen}
         onSubmit={onLogTime}
         open={logTimeOpen}
+        taskTitle={task.title}
+      />
+      <EstimateDialog
+        currentMinutes={task.estimatedMinutes}
+        onOpenChange={setEstimateOpen}
+        onSubmit={async (minutes) => {
+          await onEstimateChange?.(minutes);
+        }}
+        open={estimateOpen}
         taskTitle={task.title}
       />
     </header>
@@ -280,6 +326,122 @@ export function TaskHeader({
     }
     await onUpdate({ ...task, status });
   }
+}
+
+function EstimateDialog({
+  currentMinutes,
+  open,
+  taskTitle,
+  onOpenChange,
+  onSubmit,
+}: {
+  currentMinutes: number | null;
+  open: boolean;
+  taskTitle: string;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (minutes: number | null) => Promise<void>;
+}) {
+  const [duration, setDuration] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setDuration(currentMinutes ? formatDuration(currentMinutes) : "");
+      setError("");
+      setSaving(false);
+    }
+  }, [currentMinutes, open]);
+
+  const parsedMinutes = parseDuration(duration);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!duration.trim()) {
+      await save(null);
+      return;
+    }
+    if (!parsedMinutes) {
+      setError("Enter an estimate like 30m, 2h, 1d, or 1w (1d = 8h, 1w = 5d).");
+      return;
+    }
+    await save(parsedMinutes);
+  }
+
+  async function save(minutes: number | null) {
+    setSaving(true);
+    setError("");
+    try {
+      await onSubmit(minutes);
+      onOpenChange(false);
+    } catch (cause) {
+      setError(String(cause));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Calculator className="size-4 text-muted-foreground" />
+            Estimate time
+          </DialogTitle>
+          <DialogDescription>
+            Set the expected time for {taskTitle}.
+          </DialogDescription>
+        </DialogHeader>
+        <form className="space-y-4" onSubmit={submit}>
+          <div className="space-y-2">
+            <Label htmlFor="estimate-duration">Estimate</Label>
+            <Input
+              aria-describedby="estimate-duration-hint"
+              autoFocus
+              className="font-mono"
+              id="estimate-duration"
+              onChange={(event) => {
+                setDuration(event.target.value);
+                if (error) setError("");
+              }}
+              placeholder="2d 4h"
+              value={duration}
+            />
+            <p
+              className="font-mono text-[10px] text-muted-foreground"
+              id="estimate-duration-hint"
+            >
+              {parsedMinutes
+                ? `= ${formatDuration(parsedMinutes)}`
+                : "Leave empty to clear. Units: 1d = 8h, 1w = 5d."}
+            </p>
+            {error && <p className="text-xs text-destructive">{error}</p>}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              onClick={() => onOpenChange(false)}
+              type="button"
+              variant="ghost"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={saving}
+              onClick={() => void save(null)}
+              type="button"
+              variant="outline"
+            >
+              Clear
+            </Button>
+            <Button disabled={saving} type="submit">
+              {saving ? "Saving..." : "Save estimate"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function MetaChip({

@@ -90,6 +90,17 @@ fn list_entries(
 }
 
 #[tauri::command]
+fn list_worklog_metrics(
+    database: tauri::State<'_, Database>,
+    start_at: Option<String>,
+    end_at: Option<String>,
+) -> Result<Vec<repository::WorklogMetricEntry>, String> {
+    database
+        .list_worklog_metrics(start_at, end_at)
+        .map_err(to_message)
+}
+
+#[tauri::command]
 fn create_entry(
     database: tauri::State<'_, Database>,
     input: CreateEntryInput,
@@ -356,6 +367,7 @@ pub fn run() {
             rename_folder,
             delete_folder,
             list_entries,
+            list_worklog_metrics,
             create_entry,
             update_entry,
             list_revisions,

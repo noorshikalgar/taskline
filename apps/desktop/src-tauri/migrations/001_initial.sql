@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   status TEXT NOT NULL DEFAULT 'planned'
     CHECK(status IN ('planned', 'active', 'blocked', 'paused', 'done', 'archived')),
   next_step TEXT,
+  estimated_minutes INTEGER,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   deleted_at TEXT
@@ -26,7 +27,7 @@ CREATE TABLE IF NOT EXISTS work_log_entries (
   id TEXT PRIMARY KEY,
   task_id TEXT NOT NULL REFERENCES tasks(id),
   entry_type TEXT NOT NULL
-    CHECK(entry_type IN ('note', 'progress', 'finding', 'blocker', 'decision', 'next_step', 'worklog', 'status')),
+    CHECK(entry_type IN ('note', 'progress', 'finding', 'blocker', 'decision', 'next_step', 'worklog', 'status', 'estimate')),
   content_markdown TEXT NOT NULL CHECK(length(trim(content_markdown)) > 0),
   visibility TEXT NOT NULL DEFAULT 'private'
     CHECK(visibility IN ('private', 'report')),

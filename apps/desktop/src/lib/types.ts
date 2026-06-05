@@ -7,6 +7,7 @@ export const ENTRY_TYPES = [
   "next_step",
   "worklog",
   "status",
+  "estimate",
 ] as const;
 
 export const TASK_STATUSES = [
@@ -28,6 +29,7 @@ export interface Task {
   descriptionMarkdown: string;
   status: TaskStatus;
   nextStep: string | null;
+  estimatedMinutes: number | null;
   folderId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -50,6 +52,16 @@ export interface WorkLogEntry {
   createdAt: string;
   updatedAt: string;
   durationMinutes: number | null;
+}
+
+export interface WorklogMetricEntry {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  folderName: string | null;
+  contentMarkdown: string;
+  occurredAt: string;
+  durationMinutes: number;
 }
 
 export interface WorkLogRevision {

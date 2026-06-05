@@ -178,10 +178,10 @@ export function TaskSidebar({
     <aside className="flex h-full w-full flex-col border-r border-border bg-card text-card-foreground">
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div className="flex items-baseline gap-1.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
             Tasks
           </span>
-          <span className="font-mono text-[10px] text-muted-foreground/80">
+          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-foreground">
             {tasks.length}
           </span>
         </div>
@@ -405,7 +405,7 @@ function FolderGroup({
                 className="min-w-0 flex-1 truncate"
                 text={folder.name}
               />
-              <span className="ml-auto font-mono text-[10px] text-muted-foreground/70">
+              <span className="ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded border border-border bg-muted/70 px-1 font-mono text-[10px] text-muted-foreground group-hover/folder:text-foreground">
                 {tasks.length}
               </span>
             </button>

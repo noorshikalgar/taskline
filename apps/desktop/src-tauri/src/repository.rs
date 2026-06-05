@@ -13,9 +13,10 @@ use uuid::Uuid;
 const MIGRATION: &str = include_str!("../migrations/001_initial.sql");
 const ATTACHMENT_MIGRATION: &str = include_str!("../migrations/002_attachments.sql");
 const FOLDER_MIGRATION: &str = include_str!("../migrations/003_folders.sql");
-const WORKLOG_ENTRY_TYPE_MIGRATION: &str =
-    include_str!("../migrations/004_worklog_entry_type.sql");
+const WORKLOG_ENTRY_TYPE_MIGRATION: &str = include_str!("../migrations/004_worklog_entry_type.sql");
 const STATUS_ENTRY_TYPE_MIGRATION: &str = include_str!("../migrations/005_status_entry_type.sql");
+const ESTIMATE_ENTRY_TYPE_MIGRATION: &str =
+    include_str!("../migrations/006_estimate_entry_type.sql");
 const MAX_ATTACHMENT_BYTES: usize = 10 * 1024 * 1024;
 const TASK_STATUSES: &[&str] = &["planned", "active", "blocked", "paused", "done", "archived"];
 const ENTRY_TYPES: &[&str] = &[
@@ -27,7 +28,9 @@ const ENTRY_TYPES: &[&str] = &[
     "next_step",
     "worklog",
     "status",
+    "estimate",
 ];
+const PROTECTED_ENTRY_TYPES: &[&str] = &["progress", "worklog", "status", "estimate"];
 const VISIBILITIES: &[&str] = &["private", "report"];
 
 #[derive(Debug)]
@@ -76,6 +79,7 @@ pub struct Task {
     pub description_markdown: String,
     pub status: String,
     pub next_step: Option<String>,
+    pub estimated_minutes: Option<i64>,
     pub folder_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -95,6 +99,7 @@ pub struct UpdateTaskInput {
     pub description_markdown: String,
     pub status: String,
     pub next_step: Option<String>,
+    pub estimated_minutes: Option<i64>,
     pub folder_id: Option<String>,
 }
 
@@ -140,6 +145,18 @@ pub struct WorkLogEntry {
     pub updated_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duration_minutes: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorklogMetricEntry {
+    pub id: String,
+    pub task_id: String,
+    pub task_title: String,
+    pub folder_name: Option<String>,
+    pub content_markdown: String,
+    pub occurred_at: String,
+    pub duration_minutes: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -240,9 +257,11 @@ impl Database {
         connection.execute_batch(MIGRATION)?;
         connection.execute_batch(ATTACHMENT_MIGRATION)?;
         Self::ensure_tasks_folder_column(connection)?;
+        Self::ensure_task_estimate_column(connection)?;
         Self::ensure_work_log_duration_column(connection)?;
         Self::ensure_worklog_entry_type(connection)?;
         Self::ensure_status_entry_type(connection)?;
+        Self::ensure_estimate_entry_type(connection)?;
         connection.execute_batch(FOLDER_MIGRATION)?;
         Ok(())
     }
@@ -263,6 +282,19 @@ impl Database {
         Ok(())
     }
 
+    fn ensure_task_estimate_column(connection: &Connection) -> Result<()> {
+        let mut pragma_columns = connection.prepare("PRAGMA table_info(tasks)")?;
+        let names: Vec<String> = pragma_columns
+            .query_map([], |row| row.get::<_, String>(1))?
+            .map(|entry| entry.map_err(RepositoryError::Database))
+            .collect::<Result<Vec<_>>>()?;
+        if names.iter().any(|name| name == "estimated_minutes") {
+            return Ok(());
+        }
+        connection.execute("ALTER TABLE tasks ADD COLUMN estimated_minutes INTEGER", [])?;
+        Ok(())
+    }
+
     fn ensure_status_entry_type(connection: &Connection) -> Result<()> {
         let applied: Option<String> = connection
             .query_row(
@@ -277,6 +309,25 @@ impl Database {
         connection.execute_batch(STATUS_ENTRY_TYPE_MIGRATION)?;
         connection.execute(
             "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('status_entry_type_applied', '1')",
+            [],
+        )?;
+        Ok(())
+    }
+
+    fn ensure_estimate_entry_type(connection: &Connection) -> Result<()> {
+        let applied: Option<String> = connection
+            .query_row(
+                "SELECT value FROM schema_meta WHERE key = 'estimate_entry_type_applied'",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if applied.as_deref() == Some("1") {
+            return Ok(());
+        }
+        connection.execute_batch(ESTIMATE_ENTRY_TYPE_MIGRATION)?;
+        connection.execute(
+            "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('estimate_entry_type_applied', '1')",
             [],
         )?;
         Ok(())
@@ -333,7 +384,7 @@ impl Database {
     pub fn list_tasks(&self) -> Result<Vec<Task>> {
         let connection = self.connection()?;
         let mut statement = connection.prepare(
-            "SELECT id, title, description_markdown, status, next_step, folder_id, created_at, updated_at
+            "SELECT id, title, description_markdown, status, next_step, estimated_minutes, folder_id, created_at, updated_at
              FROM tasks WHERE deleted_at IS NULL ORDER BY updated_at DESC",
         )?;
         let tasks = statement
@@ -357,17 +408,25 @@ impl Database {
     pub fn update_task(&self, input: UpdateTaskInput) -> Result<Task> {
         let title = required(input.title, "Task title")?;
         allowed(&input.status, TASK_STATUSES, "task status")?;
+        if let Some(value) = input.estimated_minutes {
+            if value <= 0 {
+                return Err(RepositoryError::Invalid(
+                    "Estimate must be a positive number of minutes.".into(),
+                ));
+            }
+        }
         let connection = self.connection()?;
         ensure_folder_is_valid(&connection, input.folder_id.as_deref())?;
         let changed = connection.execute(
             "UPDATE tasks SET title = ?2, description_markdown = ?3, status = ?4,
-             next_step = ?5, folder_id = ?6, updated_at = ?7 WHERE id = ?1 AND deleted_at IS NULL",
+             next_step = ?5, estimated_minutes = ?6, folder_id = ?7, updated_at = ?8 WHERE id = ?1 AND deleted_at IS NULL",
             params![
                 input.id,
                 title,
                 input.description_markdown,
                 input.status,
                 clean_optional(input.next_step),
+                input.estimated_minutes,
                 input.folder_id,
                 now()
             ],
@@ -453,9 +512,8 @@ impl Database {
 
     pub fn delete_folder(&self, folder_id: &str) -> Result<()> {
         let connection = self.connection()?;
-        let mut statement = connection.prepare(
-            "SELECT 1 FROM tasks WHERE folder_id = ?1 AND deleted_at IS NULL LIMIT 1",
-        )?;
+        let mut statement = connection
+            .prepare("SELECT 1 FROM tasks WHERE folder_id = ?1 AND deleted_at IS NULL LIMIT 1")?;
         let in_use: bool = statement
             .query_row(params![folder_id], |row| row.get(0))
             .optional()?
@@ -491,6 +549,45 @@ impl Database {
         )?;
         let entries = statement
             .query_map(params![task_id, limit, offset], map_entry)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(entries)
+    }
+
+    pub fn list_worklog_metrics(
+        &self,
+        start_at: Option<String>,
+        end_at: Option<String>,
+    ) -> Result<Vec<WorklogMetricEntry>> {
+        let connection = self.connection()?;
+        let start = start_at.unwrap_or_else(|| "0000-01-01T00:00:00Z".into());
+        let end = end_at.unwrap_or_else(|| "9999-12-31T23:59:59Z".into());
+        let mut statement = connection.prepare(
+            "SELECT work_log_entries.id, work_log_entries.task_id, tasks.title,
+                    folders.name, work_log_entries.content_markdown,
+                    work_log_entries.occurred_at, work_log_entries.duration_minutes
+             FROM work_log_entries
+             JOIN tasks ON tasks.id = work_log_entries.task_id
+             LEFT JOIN folders ON folders.id = tasks.folder_id
+             WHERE work_log_entries.deleted_at IS NULL
+               AND tasks.deleted_at IS NULL
+               AND work_log_entries.entry_type = 'worklog'
+               AND work_log_entries.duration_minutes > 0
+               AND work_log_entries.occurred_at >= ?1
+               AND work_log_entries.occurred_at <= ?2
+             ORDER BY work_log_entries.occurred_at DESC, work_log_entries.id DESC",
+        )?;
+        let entries = statement
+            .query_map(params![start, end], |row| {
+                Ok(WorklogMetricEntry {
+                    id: row.get(0)?,
+                    task_id: row.get(1)?,
+                    task_title: row.get(2)?,
+                    folder_name: row.get(3)?,
+                    content_markdown: row.get(4)?,
+                    occurred_at: row.get(5)?,
+                    duration_minutes: row.get(6)?,
+                })
+            })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(entries)
     }
@@ -611,6 +708,21 @@ impl Database {
     }
 
     pub fn trash_entry(&self, entry_id: &str) -> Result<()> {
+        let connection = self.connection()?;
+        let entry_type: String = connection
+            .query_row(
+                "SELECT entry_type FROM work_log_entries WHERE id = ?1 AND deleted_at IS NULL",
+                params![entry_id],
+                |row| row.get(0),
+            )
+            .optional()?
+            .ok_or(RepositoryError::NotFound("Entry"))?;
+        if PROTECTED_ENTRY_TYPES.contains(&entry_type.as_str()) {
+            return Err(RepositoryError::Invalid(
+                "This timeline fact is protected and cannot be deleted.".into(),
+            ));
+        }
+        drop(connection);
         self.set_entry_deleted(entry_id, Some(now()))
     }
 
@@ -776,7 +888,7 @@ fn ensure_task(transaction: &Transaction<'_>, task_id: &str) -> Result<()> {
 fn get_task(connection: &Connection, task_id: &str) -> Result<Task> {
     connection
         .query_row(
-            "SELECT id, title, description_markdown, status, next_step, folder_id, created_at, updated_at
+            "SELECT id, title, description_markdown, status, next_step, estimated_minutes, folder_id, created_at, updated_at
              FROM tasks WHERE id = ?1 AND deleted_at IS NULL",
             params![task_id],
             map_task,
@@ -831,9 +943,10 @@ fn map_task(row: &Row<'_>) -> rusqlite::Result<Task> {
         description_markdown: row.get(2)?,
         status: row.get(3)?,
         next_step: row.get(4)?,
-        folder_id: row.get(5)?,
-        created_at: row.get(6)?,
-        updated_at: row.get(7)?,
+        estimated_minutes: row.get(5)?,
+        folder_id: row.get(6)?,
+        created_at: row.get(7)?,
+        updated_at: row.get(8)?,
     })
 }
 
@@ -951,6 +1064,7 @@ mod tests {
             description_markdown: String::new(),
             status: "in_review".into(),
             next_step: None,
+            estimated_minutes: None,
             folder_id: None,
         });
         assert!(matches!(result, Err(RepositoryError::Invalid(_))));
@@ -995,6 +1109,84 @@ mod tests {
         let listed = database.list_entries(&task.id, 50, 0).unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].entry_type, "status");
+    }
+
+    #[test]
+    fn estimate_round_trips_and_logs_as_entry_type() {
+        let database = Database::memory().unwrap();
+        let task = task(&database);
+        let updated = database
+            .update_task(UpdateTaskInput {
+                id: task.id.clone(),
+                title: task.title,
+                description_markdown: String::new(),
+                status: task.status,
+                next_step: None,
+                estimated_minutes: Some(480),
+                folder_id: None,
+            })
+            .unwrap();
+        assert_eq!(updated.estimated_minutes, Some(480));
+
+        let logged = database
+            .create_entry(CreateEntryInput {
+                task_id: task.id.clone(),
+                entry_type: "estimate".into(),
+                content_markdown: "Estimate set to 1d.".into(),
+                visibility: "private".into(),
+                duration_minutes: Some(480),
+            })
+            .unwrap();
+        assert_eq!(logged.entry_type, "estimate");
+        assert_eq!(logged.duration_minutes, Some(480));
+    }
+
+    #[test]
+    fn protected_timeline_facts_cannot_be_trashed() {
+        let database = Database::memory().unwrap();
+        let task = task(&database);
+        for entry_type in ["progress", "worklog", "status", "estimate"] {
+            let entry = database
+                .create_entry(CreateEntryInput {
+                    task_id: task.id.clone(),
+                    entry_type: entry_type.into(),
+                    content_markdown: format!("{entry_type} fact"),
+                    visibility: "private".into(),
+                    duration_minutes: (entry_type == "worklog").then_some(30),
+                })
+                .unwrap();
+            let result = database.trash_entry(&entry.id);
+            assert!(matches!(result, Err(RepositoryError::Invalid(_))));
+        }
+    }
+
+    #[test]
+    fn worklog_metrics_returns_logged_time_with_task_context() {
+        let database = Database::memory().unwrap();
+        let task = task(&database);
+        database
+            .create_entry(CreateEntryInput {
+                task_id: task.id.clone(),
+                entry_type: "worklog".into(),
+                content_markdown: "Implemented metrics.".into(),
+                visibility: "private".into(),
+                duration_minutes: Some(90),
+            })
+            .unwrap();
+        database
+            .create_entry(CreateEntryInput {
+                task_id: task.id,
+                entry_type: "note".into(),
+                content_markdown: "Not a worklog.".into(),
+                visibility: "private".into(),
+                duration_minutes: Some(90),
+            })
+            .unwrap();
+
+        let metrics = database.list_worklog_metrics(None, None).unwrap();
+        assert_eq!(metrics.len(), 1);
+        assert_eq!(metrics[0].duration_minutes, 90);
+        assert_eq!(metrics[0].task_title, "Ship task threads");
     }
 
     #[test]

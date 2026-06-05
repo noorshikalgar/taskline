@@ -1,7 +1,4 @@
--- Recreate work_log_entries to widen the entry_type CHECK constraint to allow
--- 'worklog'. SQLite cannot ALTER a CHECK constraint in place, so we build a
--- new table with the updated constraint, copy the rows over, swap the names,
--- and rebuild the timeline index.
+-- Add task-level estimates and allow immutable estimate-change timeline rows.
 PRAGMA foreign_keys = OFF;
 BEGIN TRANSACTION;
 
@@ -32,7 +29,7 @@ ALTER TABLE work_log_entries_new RENAME TO work_log_entries;
 CREATE INDEX IF NOT EXISTS idx_entries_task_timeline
   ON work_log_entries(task_id, deleted_at, occurred_at DESC, id DESC);
 
-INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('schema_version', '4');
+INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('schema_version', '6');
 
 COMMIT;
 PRAGMA foreign_keys = ON;

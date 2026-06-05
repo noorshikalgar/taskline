@@ -45,6 +45,7 @@ export const ENTRY_LABEL: Record<EntryType, string> = {
   next_step: "Next step",
   worklog: "Worklog",
   status: "Status",
+  estimate: "Estimate",
 };
 
 export const ENTRY_DOT: Record<EntryType, string> = {
@@ -56,6 +57,7 @@ export const ENTRY_DOT: Record<EntryType, string> = {
   note: "bg-muted-foreground",
   worklog: "bg-cyan-500",
   status: "bg-blue-500",
+  estimate: "bg-fuchsia-500",
 };
 
 export const ENTRY_BG: Record<EntryType, string> = {
@@ -67,6 +69,7 @@ export const ENTRY_BG: Record<EntryType, string> = {
   note: "bg-muted text-muted-foreground",
   worklog: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-300",
   status: "bg-blue-500/15 text-blue-600 dark:text-blue-300",
+  estimate: "bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-300",
 };
 
 export const VISIBILITY_LABEL: Record<Visibility, string> = {

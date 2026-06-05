@@ -8,6 +8,7 @@ import type {
   TaskStatus,
   Visibility,
   WorkLogEntry,
+  WorklogMetricEntry,
   WorkLogRevision,
 } from "./types";
 
@@ -23,6 +24,7 @@ export const api = {
         descriptionMarkdown: task.descriptionMarkdown,
         status: task.status satisfies TaskStatus,
         nextStep: task.nextStep,
+        estimatedMinutes: task.estimatedMinutes,
         folderId: task.folderId,
       },
     }),
@@ -39,6 +41,8 @@ export const api = {
   deleteFolder: (id: string) => invoke<void>("delete_folder", { id }),
   listEntries: (taskId: string, limit = 100, offset = 0) =>
     invoke<WorkLogEntry[]>("list_entries", { taskId, limit, offset }),
+  listWorklogMetrics: (startAt: string, endAt: string) =>
+    invoke<WorklogMetricEntry[]>("list_worklog_metrics", { startAt, endAt }),
   createEntry: (
     taskId: string,
     entryType: EntryType,
