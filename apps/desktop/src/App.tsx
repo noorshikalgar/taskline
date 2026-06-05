@@ -36,7 +36,10 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -47,6 +50,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { api } from "@/lib/api";
+import { APP_THEMES, isAppTheme, type AppThemeId } from "@/lib/themes";
 import {
   type Attachment,
   type EntryType,
@@ -67,45 +71,6 @@ const PAGE_SIZE = 100;
 const DEFAULT_SIDEBAR_WIDTH = 280;
 const MIN_SIDEBAR_WIDTH = 240;
 const MAX_SIDEBAR_WIDTH = 420;
-const APP_THEMES = [
-  {
-    id: "default-dark",
-    label: "Default Dark",
-    family: "Default",
-    dark: true,
-  },
-  {
-    id: "default-light",
-    label: "Default Light",
-    family: "Default",
-    dark: false,
-  },
-  {
-    id: "tokyo-night-dark",
-    label: "Tokyo Night",
-    family: "Tokyo Night",
-    dark: true,
-  },
-  {
-    id: "tokyo-night-light",
-    label: "Tokyo Night Light",
-    family: "Tokyo Night",
-    dark: false,
-  },
-  {
-    id: "zed-dark",
-    label: "Zed One Dark",
-    family: "Zed",
-    dark: true,
-  },
-  {
-    id: "zed-light",
-    label: "Zed One Light",
-    family: "Zed",
-    dark: false,
-  },
-] as const;
-type AppTheme = (typeof APP_THEMES)[number]["id"];
 
 export { TaskHeader } from "@/components/TaskHeader";
 
@@ -125,7 +90,7 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(() =>
     clampSidebarWidth(Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))),
   );
-  const [theme, setTheme] = useState<AppTheme>(() => {
+  const [theme, setTheme] = useState<AppThemeId>(() => {
     const saved = localStorage.getItem(THEME_KEY);
     return isAppTheme(saved) ? saved : "default-dark";
   });
@@ -683,9 +648,9 @@ function SettingsDialog({
   onThemeChange,
 }: {
   open: boolean;
-  theme: AppTheme;
+  theme: AppThemeId;
   onOpenChange: (open: boolean) => void;
-  onThemeChange: (theme: AppTheme) => void;
+  onThemeChange: (theme: AppThemeId) => void;
 }) {
   const [update, setUpdate] = useState<Update | null>(null);
   const [updateState, setUpdateState] = useState<
@@ -799,17 +764,35 @@ function SettingsDialog({
                 <SelectValue placeholder="Select theme" />
               </SelectTrigger>
               <SelectContent>
-                {APP_THEMES.map((option) => {
-                  const Icon = option.dark ? Moon : Sun;
-                  return (
-                    <SelectItem key={option.id} value={option.id}>
-                      <span className="inline-flex items-center gap-2">
-                        <Icon className="size-3.5 text-muted-foreground" />
-                        {option.label}
-                      </span>
-                    </SelectItem>
-                  );
-                })}
+                <SelectGroup>
+                  <SelectLabel>Dark</SelectLabel>
+                  {APP_THEMES.filter((option) => option.dark).map((option) => {
+                    const Icon = Moon;
+                    return (
+                      <SelectItem key={option.id} value={option.id}>
+                        <span className="inline-flex items-center gap-2">
+                          <Icon className="size-3.5 text-muted-foreground" />
+                          {option.label}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectGroup>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>Light</SelectLabel>
+                  {APP_THEMES.filter((option) => !option.dark).map((option) => {
+                    const Icon = Sun;
+                    return (
+                      <SelectItem key={option.id} value={option.id}>
+                        <span className="inline-flex items-center gap-2">
+                          <Icon className="size-3.5 text-muted-foreground" />
+                          {option.label}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>
@@ -886,10 +869,6 @@ function SettingsDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function isAppTheme(value: string | null): value is AppTheme {
-  return APP_THEMES.some((option) => option.id === value);
 }
 
 function clampSidebarWidth(value: number) {

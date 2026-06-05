@@ -1,7 +1,10 @@
+import { APP_THEMES } from "./src/lib/themes";
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ["class"],
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  safelist: APP_THEMES.map((theme) => `theme-${theme.id}`),
   theme: {
     container: {
       center: true,

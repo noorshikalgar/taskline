@@ -211,6 +211,36 @@ describe("TaskHeader", () => {
     expect(document.documentElement).not.toHaveClass("dark");
   });
 
+  it("switches between dark themes and rotates every theme class", async () => {
+    mockAppApi();
+    Element.prototype.scrollIntoView = vi.fn();
+    localStorage.setItem("taskline:theme", "zed-dark");
+    render(<App />);
+
+    expect(document.documentElement).toHaveClass("theme-zed-dark");
+    expect(document.documentElement).toHaveClass("dark");
+    expect(document.documentElement).not.toHaveClass("theme-tokyo-night-dark");
+    expect(document.documentElement).not.toHaveClass("theme-default-dark");
+
+    fireEvent.click(screen.getByLabelText("Open settings"));
+    fireEvent.click(screen.getByRole("combobox", { name: "Theme" }));
+    fireEvent.click(await screen.findByText("Default Dark"));
+
+    expect(localStorage.getItem("taskline:theme")).toBe("default-dark");
+    const root = document.documentElement;
+    expect(root).toHaveClass("theme-default-dark");
+    expect(root).toHaveClass("dark");
+    for (const stale of [
+      "theme-zed-dark",
+      "theme-zed-light",
+      "theme-tokyo-night-dark",
+      "theme-tokyo-night-light",
+      "theme-default-light",
+    ]) {
+      expect(root).not.toHaveClass(stale);
+    }
+  });
+
   it("shows a minimal workspace status bar", async () => {
     mockAppApi();
     render(<App />);
