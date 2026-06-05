@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import { formatDuration } from "@/lib/duration";
 import { STATUS_DOT, STATUS_LABEL, STATUS_ORDER } from "@/lib/status";
-import { TASK_STATUSES, type Task, type TaskStatus } from "@/lib/types";
+import { type Task, type TaskStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -25,6 +25,7 @@ interface Props {
   pendingTitleEdit?: boolean;
   onLogTime: (input: LogTimeInput) => Promise<void>;
   onPendingTitleEditConsumed?: () => void;
+  onStatusChange?: (status: TaskStatus) => Promise<void>;
   onUpdate: (task: Task) => Promise<void>;
 }
 
@@ -37,12 +38,9 @@ export function TaskHeader({
   pendingTitleEdit,
   onLogTime,
   onPendingTitleEditConsumed,
+  onStatusChange,
   onUpdate,
 }: Props) {
-  const [nextStep, setNextStep] = useState(task.nextStep ?? "");
-  const [nextStepState, setNextStepState] = useState<
-    "idle" | "saving" | "saved" | "error"
-  >("idle");
   const [titleDraft, setTitleDraft] = useState<string | null>(null);
   const [titleState, setTitleState] = useState<"idle" | "saving" | "error">(
     "idle",
@@ -51,11 +49,6 @@ export function TaskHeader({
   const [logTimeOpen, setLogTimeOpen] = useState(false);
   const titleInput = useRef<HTMLInputElement>(null);
   const titleInputMounted = useRef(false);
-
-  useEffect(() => {
-    setNextStep(task.nextStep ?? "");
-    setNextStepState("idle");
-  }, [task.id, task.nextStep]);
 
   useEffect(() => {
     if (pendingTitleEdit) {
@@ -77,29 +70,6 @@ export function TaskHeader({
     titleInput.current?.focus();
     titleInput.current?.select();
   }, [titleDraft]);
-
-  useEffect(() => {
-    const normalized = nextStep.trim() || null;
-    if (normalized === task.nextStep) return;
-
-    const timer = window.setTimeout(() => {
-      void saveNextStep();
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [nextStep, task.nextStep]);
-
-  async function saveNextStep() {
-    const normalized = nextStep.trim() || null;
-    if (normalized === task.nextStep || nextStepState === "saving") return;
-
-    setNextStepState("saving");
-    try {
-      await onUpdate({ ...task, nextStep: normalized });
-      setNextStepState("saved");
-    } catch {
-      setNextStepState("error");
-    }
-  }
 
   async function commitTitle() {
     if (titleDraft === null) return;
@@ -136,11 +106,6 @@ export function TaskHeader({
   const statusLabel = STATUS_LABEL[task.status];
   const showWorkSessionAction =
     task.status !== "done" && task.status !== "archived";
-  const isMac =
-    typeof navigator !== "undefined" &&
-    /Mac|iPhone|iPad/i.test(navigator.platform);
-  const metaKey = isMac ? "⌘" : "Ctrl";
-
   return (
     <header className="flex flex-col gap-3 border-b border-border bg-background/85 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex items-start gap-2">
@@ -194,13 +159,9 @@ export function TaskHeader({
                       : "Start work session"
                   }
                   onClick={() =>
-                    void onUpdate({
-                      ...task,
-                      status:
-                        task.status === "active"
-                          ? "paused"
-                          : ("active" as TaskStatus),
-                    })
+                    void changeStatus(
+                      task.status === "active" ? "paused" : "active",
+                    )
                   }
                   size="icon-sm"
                   variant="ghost"
@@ -246,7 +207,7 @@ export function TaskHeader({
                   key={status}
                   onClick={() => {
                     setStatusOpen(false);
-                    void onUpdate({ ...task, status: status as TaskStatus });
+                    void changeStatus(status as TaskStatus);
                   }}
                   type="button"
                 >
@@ -264,26 +225,6 @@ export function TaskHeader({
         <MetaChip label="Created" value={formatShortDate(task.createdAt)} />
         <MetaChip label="Updated" value={formatShortDateTime(task.updatedAt)} />
         <MetaChip label="Updates" value={String(entriesLoaded)} mono />
-        <MetaChip
-          label="Time"
-          mono
-          value={totalMinutes > 0 ? formatDuration(totalMinutes) : "0m"}
-        />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              aria-label="Log time"
-              className="ml-0.5 h-6 gap-1 px-2 text-[10px]"
-              onClick={() => setLogTimeOpen(true)}
-              size="sm"
-              variant="outline"
-            >
-              <Clock4 className="size-3" />
-              Log time
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Record time spent on this task</TooltipContent>
-        </Tooltip>
         {titleState === "saving" && (
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             · saving title
@@ -296,52 +237,32 @@ export function TaskHeader({
         )}
       </div>
 
-      <form
-        className="flex flex-wrap items-center gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void saveNextStep();
-        }}
-      >
-        <label
-          className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-          htmlFor="next-step"
-        >
-          Next
-        </label>
-        <Input
-          className="h-7 max-w-xl flex-1 border-dashed bg-transparent text-xs shadow-none focus-visible:border-solid focus-visible:ring-1"
-          id="next-step"
-          onChange={(event) => setNextStep(event.target.value)}
-          onBlur={() => void saveNextStep()}
-          placeholder="What should happen next?"
-          value={nextStep}
-        />
-        <span
-          aria-live="polite"
-          className={cn(
-            "font-mono text-[10px] uppercase tracking-wider transition-colors",
-            nextStepState === "saved" && "text-emerald-500",
-            nextStepState === "saving" && "text-muted-foreground",
-            nextStepState === "error" && "text-destructive",
-            nextStepState === "idle" && "text-transparent",
-          )}
-        >
-          {nextStepState === "saving" && "Saving"}
-          {nextStepState === "saved" && "Saved"}
-          {nextStepState === "error" && "Save failed"}
-          {nextStepState === "idle" && "·"}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Worklog
         </span>
-        <span className="ml-auto hidden items-center gap-1 text-[10px] text-muted-foreground md:inline-flex">
-          <span>Save with</span>
-          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded border border-border bg-muted px-1 font-mono text-[9px]">
-            {metaKey}
-          </span>
-          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded border border-border bg-muted px-1 font-mono text-[9px]">
-            S
+        <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2 text-xs text-foreground">
+          <Clock4 className="size-3 text-muted-foreground" />
+          <span className="font-mono text-[11px]">
+            {totalMinutes > 0 ? formatDuration(totalMinutes) : "0m"}
           </span>
         </span>
-      </form>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              aria-label="Log time"
+              className="h-7 gap-1 px-2 text-xs"
+              onClick={() => setLogTimeOpen(true)}
+              size="sm"
+              variant="outline"
+            >
+              <Clock4 className="size-3" />
+              Log time
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Record time spent on this task</TooltipContent>
+        </Tooltip>
+      </div>
       <LogTimeDialog
         onOpenChange={setLogTimeOpen}
         onSubmit={onLogTime}
@@ -350,6 +271,15 @@ export function TaskHeader({
       />
     </header>
   );
+
+  async function changeStatus(status: TaskStatus) {
+    if (status === task.status) return;
+    if (onStatusChange) {
+      await onStatusChange(status);
+      return;
+    }
+    await onUpdate({ ...task, status });
+  }
 }
 
 function MetaChip({

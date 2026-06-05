@@ -54,6 +54,7 @@ const ENTRY_LABELS: Record<EntryType, string> = {
   decision: "Decision",
   next_step: "Next step",
   worklog: "Worklog",
+  status: "Status",
 };
 
 const TYPE_BADGE: Record<
@@ -67,6 +68,7 @@ const TYPE_BADGE: Record<
   decision: "secondary",
   note: "outline",
   worklog: "secondary",
+  status: "info",
 };
 
 const TYPE_DOT: Record<EntryType, string> = {
@@ -77,6 +79,7 @@ const TYPE_DOT: Record<EntryType, string> = {
   decision: "bg-violet-500",
   note: "bg-muted-foreground",
   worklog: "bg-cyan-500",
+  status: "bg-blue-500",
 };
 
 export function Timeline({

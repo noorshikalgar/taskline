@@ -44,6 +44,7 @@ export const ENTRY_LABEL: Record<EntryType, string> = {
   decision: "Decision",
   next_step: "Next step",
   worklog: "Worklog",
+  status: "Status",
 };
 
 export const ENTRY_DOT: Record<EntryType, string> = {
@@ -54,6 +55,7 @@ export const ENTRY_DOT: Record<EntryType, string> = {
   decision: "bg-violet-500",
   note: "bg-muted-foreground",
   worklog: "bg-cyan-500",
+  status: "bg-blue-500",
 };
 
 export const ENTRY_BG: Record<EntryType, string> = {
@@ -64,6 +66,7 @@ export const ENTRY_BG: Record<EntryType, string> = {
   decision: "bg-violet-500/15 text-violet-600 dark:text-violet-300",
   note: "bg-muted text-muted-foreground",
   worklog: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-300",
+  status: "bg-blue-500/15 text-blue-600 dark:text-blue-300",
 };
 
 export const VISIBILITY_LABEL: Record<Visibility, string> = {

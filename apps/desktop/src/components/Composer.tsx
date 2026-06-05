@@ -5,7 +5,6 @@ import {
   CircleHelp,
   ImagePlus,
   Lightbulb,
-  Pin,
   Send,
   StickyNote,
   X,
@@ -104,13 +103,14 @@ const MENTION_OPTIONS: MentionOption[] = [
     hint: "A choice that was made",
     Icon: CircleCheck,
   },
-  {
-    type: "next_step",
-    label: "Next step",
-    aliases: ["next", "nextstep", "next-step"],
-    hint: "What should happen next",
-    Icon: Pin,
-  },
+];
+
+const COMPOSER_ENTRY_TYPES: EntryType[] = [
+  "note",
+  "progress",
+  "finding",
+  "blocker",
+  "decision",
 ];
 
 function optionMatchesQuery(option: MentionOption, query: string): boolean {
@@ -438,7 +438,9 @@ export function Composer({ taskId, onSubmit }: Props) {
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
-                {ENTRY_TYPES.map((type) => (
+                {ENTRY_TYPES.filter((type) =>
+                  COMPOSER_ENTRY_TYPES.includes(type),
+                ).map((type) => (
                   <SelectItem key={type} value={type}>
                     {MENTION_OPTIONS.find((option) => option.type === type)
                       ?.label ?? type}

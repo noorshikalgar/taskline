@@ -58,30 +58,19 @@ function mockAppApi() {
 }
 
 describe("TaskHeader", () => {
-  it("persists a next step when the field loses focus", async () => {
-    const update = vi.fn().mockResolvedValue(undefined);
+  it("keeps the next step field hidden from the task header", () => {
     render(
       <TaskHeader
         entriesLoaded={0}
         onLogTime={vi.fn()}
-        onUpdate={update}
+        onUpdate={vi.fn()}
         task={task}
         totalMinutes={0}
       />,
     );
 
-    const field = screen.getByLabelText("Next");
-    fireEvent.change(field, {
-      target: { value: "Verify restart persistence" },
-    });
-    fireEvent.blur(field);
-
-    await waitFor(() =>
-      expect(update).toHaveBeenCalledWith({
-        ...task,
-        nextStep: "Verify restart persistence",
-      }),
-    );
+    expect(screen.queryByLabelText("Next")).not.toBeInTheDocument();
+    expect(screen.getByText("Worklog")).toBeInTheDocument();
   });
 
   it("supports inline title editing by clicking the title and pressing Enter", async () => {
@@ -226,6 +215,25 @@ describe("TaskHeader", () => {
     expect(screen.queryByText("Archived")).not.toBeInTheDocument();
   });
 
+  it("uses the status-change callback when present", async () => {
+    const onStatusChange = vi.fn().mockResolvedValue(undefined);
+    render(
+      <TaskHeader
+        entriesLoaded={0}
+        onLogTime={vi.fn()}
+        onStatusChange={onStatusChange}
+        onUpdate={vi.fn()}
+        task={task}
+        totalMinutes={0}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Status: Active. Click to change."));
+    fireEvent.click(screen.getByText("Done"));
+
+    await waitFor(() => expect(onStatusChange).toHaveBeenCalledWith("done"));
+  });
+
   it("resizes the sidebar with a bounded drag handle and resets on double click", async () => {
     mockAppApi();
     render(<App />);
@@ -307,6 +315,41 @@ describe("TaskHeader", () => {
     ]) {
       expect(root).not.toHaveClass(stale);
     }
+  });
+
+  it("logs task status changes into the timeline", async () => {
+    mockAppApi();
+    vi.mocked(api.updateTask).mockResolvedValue({ ...task, status: "done" });
+    vi.mocked(api.createEntry).mockResolvedValue({
+      id: "status-entry",
+      taskId: task.id,
+      entryType: "status",
+      contentMarkdown: "Status changed from Active to Done.",
+      visibility: "private",
+      occurredAt: "2026-06-05T00:00:00Z",
+      createdAt: "2026-06-05T00:00:00Z",
+      updatedAt: "2026-06-05T00:00:00Z",
+      durationMinutes: null,
+    });
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByLabelText("Status: Active. Click to change."),
+    );
+    fireEvent.click(screen.getByText("Done"));
+
+    await waitFor(() =>
+      expect(api.createEntry).toHaveBeenCalledWith(
+        task.id,
+        "status",
+        "Status changed from Active to Done.",
+        "private",
+      ),
+    );
+    expect((await screen.findAllByText("Status")).length).toBeGreaterThan(1);
+    expect(
+      screen.getByText("Status changed from Active to Done."),
+    ).toBeInTheDocument();
   });
 
   it("shows a minimal workspace status bar", async () => {

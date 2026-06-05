@@ -15,6 +15,7 @@ const ATTACHMENT_MIGRATION: &str = include_str!("../migrations/002_attachments.s
 const FOLDER_MIGRATION: &str = include_str!("../migrations/003_folders.sql");
 const WORKLOG_ENTRY_TYPE_MIGRATION: &str =
     include_str!("../migrations/004_worklog_entry_type.sql");
+const STATUS_ENTRY_TYPE_MIGRATION: &str = include_str!("../migrations/005_status_entry_type.sql");
 const MAX_ATTACHMENT_BYTES: usize = 10 * 1024 * 1024;
 const TASK_STATUSES: &[&str] = &["planned", "active", "blocked", "paused", "done", "archived"];
 const ENTRY_TYPES: &[&str] = &[
@@ -25,6 +26,7 @@ const ENTRY_TYPES: &[&str] = &[
     "decision",
     "next_step",
     "worklog",
+    "status",
 ];
 const VISIBILITIES: &[&str] = &["private", "report"];
 
@@ -240,6 +242,7 @@ impl Database {
         Self::ensure_tasks_folder_column(connection)?;
         Self::ensure_work_log_duration_column(connection)?;
         Self::ensure_worklog_entry_type(connection)?;
+        Self::ensure_status_entry_type(connection)?;
         connection.execute_batch(FOLDER_MIGRATION)?;
         Ok(())
     }
@@ -255,6 +258,25 @@ impl Database {
         }
         connection.execute(
             "ALTER TABLE tasks ADD COLUMN folder_id TEXT REFERENCES folders(id)",
+            [],
+        )?;
+        Ok(())
+    }
+
+    fn ensure_status_entry_type(connection: &Connection) -> Result<()> {
+        let applied: Option<String> = connection
+            .query_row(
+                "SELECT value FROM schema_meta WHERE key = 'status_entry_type_applied'",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if applied.as_deref() == Some("1") {
+            return Ok(());
+        }
+        connection.execute_batch(STATUS_ENTRY_TYPE_MIGRATION)?;
+        connection.execute(
+            "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('status_entry_type_applied', '1')",
             [],
         )?;
         Ok(())
@@ -953,6 +975,26 @@ mod tests {
         let listed = database.list_entries(&task.id, 50, 0).unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].entry_type, "worklog");
+    }
+
+    #[test]
+    fn status_entry_type_is_accepted_and_round_trips() {
+        let database = Database::memory().unwrap();
+        let task = task(&database);
+        let logged = database
+            .create_entry(CreateEntryInput {
+                task_id: task.id.clone(),
+                entry_type: "status".into(),
+                content_markdown: "Status changed from Planned to Active.".into(),
+                visibility: "private".into(),
+                duration_minutes: None,
+            })
+            .unwrap();
+        assert_eq!(logged.entry_type, "status");
+
+        let listed = database.list_entries(&task.id, 50, 0).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].entry_type, "status");
     }
 
     #[test]

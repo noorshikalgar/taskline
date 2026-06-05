@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS work_log_entries (
   id TEXT PRIMARY KEY,
   task_id TEXT NOT NULL REFERENCES tasks(id),
   entry_type TEXT NOT NULL
-    CHECK(entry_type IN ('note', 'progress', 'finding', 'blocker', 'decision', 'next_step', 'worklog')),
+    CHECK(entry_type IN ('note', 'progress', 'finding', 'blocker', 'decision', 'next_step', 'worklog', 'status')),
   content_markdown TEXT NOT NULL CHECK(length(trim(content_markdown)) > 0),
   visibility TEXT NOT NULL DEFAULT 'private'
     CHECK(visibility IN ('private', 'report')),

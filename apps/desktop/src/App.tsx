@@ -53,12 +53,14 @@ import {
 import { api } from "@/lib/api";
 import { APP_THEMES, isAppTheme, type AppThemeId } from "@/lib/themes";
 import { formatDuration } from "@/lib/duration";
+import { STATUS_LABEL } from "@/lib/status";
 import {
   type Attachment,
   type EntryType,
   type Folder,
   type PendingImage,
   type Task,
+  type TaskStatus,
   type Visibility,
   type WorkLogEntry,
   type WorkLogRevision,
@@ -228,6 +230,31 @@ export default function App() {
         candidate.id === updated.id ? updated : candidate,
       ),
     );
+  }
+
+  async function updateTaskStatus(task: Task, status: TaskStatus) {
+    if (task.status === status) return;
+    const previousStatus = task.status;
+    const updated = await api.updateTask({ ...task, status });
+    setTasks((current) =>
+      current.map((candidate) =>
+        candidate.id === updated.id ? updated : candidate,
+      ),
+    );
+
+    try {
+      const entry = await api.createEntry(
+        task.id,
+        "status",
+        `Status changed from ${STATUS_LABEL[previousStatus]} to ${STATUS_LABEL[status]}.`,
+        "private",
+      );
+      if (selectedId === task.id) {
+        setEntries((current) => [entry, ...current]);
+      }
+    } catch (cause) {
+      setError(`Status changed, but the timeline log failed: ${cause}`);
+    }
   }
 
   async function createEntry(
@@ -502,6 +529,9 @@ export default function App() {
                 key={selectedTask.id}
                 onLogTime={logTime}
                 onPendingTitleEditConsumed={() => setPendingTitleEdit(false)}
+                onStatusChange={(status) =>
+                  updateTaskStatus(selectedTask, status)
+                }
                 onUpdate={updateTask}
                 pendingTitleEdit={pendingTitleEdit}
                 task={selectedTask}
@@ -939,6 +969,7 @@ function ThreadColumn({
   const FILTERS: { value: EntryType | "all"; label: string }[] = [
     { value: "all", label: "All" },
     { value: "worklog", label: "Worklog" },
+    { value: "status", label: "Status" },
     { value: "progress", label: "Progress" },
     { value: "finding", label: "Findings" },
     { value: "blocker", label: "Blockers" },

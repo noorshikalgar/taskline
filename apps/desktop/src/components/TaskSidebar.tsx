@@ -623,7 +623,7 @@ function TaskRow({
               className="w-full truncate text-[13px] font-medium text-foreground"
               text={task.title}
             />
-            <span className="flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="flex min-w-0 items-center text-[10px] text-muted-foreground">
               <span
                 className={cn(
                   "inline-flex h-4 shrink-0 items-center rounded px-1 text-[9px] font-medium",
@@ -632,10 +632,6 @@ function TaskRow({
               >
                 {task.status}
               </span>
-              <EllipsisTooltip
-                className="min-w-0 flex-1 truncate"
-                text={task.nextStep || "No next step"}
-              />
             </span>
           </span>
           <span
