@@ -47,6 +47,7 @@ const entries: WorkLogEntry[] = [
     occurredAt: "",
     createdAt: "",
     updatedAt: "",
+    durationMinutes: null,
   },
   {
     id: "e-2",
@@ -57,6 +58,7 @@ const entries: WorkLogEntry[] = [
     occurredAt: "",
     createdAt: "",
     updatedAt: "",
+    durationMinutes: null,
   },
 ];
 

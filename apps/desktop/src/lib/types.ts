@@ -47,6 +47,7 @@ export interface WorkLogEntry {
   occurredAt: string;
   createdAt: string;
   updatedAt: string;
+  durationMinutes: number | null;
 }
 
 export interface WorkLogRevision {

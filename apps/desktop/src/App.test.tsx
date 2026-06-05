@@ -60,7 +60,15 @@ function mockAppApi() {
 describe("TaskHeader", () => {
   it("persists a next step when the field loses focus", async () => {
     const update = vi.fn().mockResolvedValue(undefined);
-    render(<TaskHeader entriesLoaded={0} onUpdate={update} task={task} />);
+    render(
+      <TaskHeader
+        entriesLoaded={0}
+        onLogTime={vi.fn()}
+        onUpdate={update}
+        task={task}
+        totalMinutes={0}
+      />,
+    );
 
     const field = screen.getByLabelText("Next");
     fireEvent.change(field, {
@@ -78,7 +86,15 @@ describe("TaskHeader", () => {
 
   it("supports inline title editing by clicking the title and pressing Enter", async () => {
     const update = vi.fn().mockResolvedValue(undefined);
-    render(<TaskHeader entriesLoaded={0} onUpdate={update} task={task} />);
+    render(
+      <TaskHeader
+        entriesLoaded={0}
+        onLogTime={vi.fn()}
+        onUpdate={update}
+        task={task}
+        totalMinutes={0}
+      />,
+    );
 
     fireEvent.click(screen.getByLabelText("Edit task title"));
     const titleField = screen.getByLabelText("Task title") as HTMLInputElement;
@@ -95,7 +111,15 @@ describe("TaskHeader", () => {
 
   it("cancels inline title editing with Escape without saving", async () => {
     const update = vi.fn().mockResolvedValue(undefined);
-    render(<TaskHeader entriesLoaded={0} onUpdate={update} task={task} />);
+    render(
+      <TaskHeader
+        entriesLoaded={0}
+        onLogTime={vi.fn()}
+        onUpdate={update}
+        task={task}
+        totalMinutes={0}
+      />,
+    );
 
     fireEvent.click(screen.getByLabelText("Edit task title"));
     const titleField = screen.getByLabelText("Task title") as HTMLInputElement;
@@ -107,7 +131,15 @@ describe("TaskHeader", () => {
   });
 
   it("shows task metadata as compact header chips", () => {
-    render(<TaskHeader entriesLoaded={6} onUpdate={vi.fn()} task={task} />);
+    render(
+      <TaskHeader
+        entriesLoaded={6}
+        onLogTime={vi.fn()}
+        onUpdate={vi.fn()}
+        task={task}
+        totalMinutes={0}
+      />,
+    );
 
     expect(screen.getByText("Created")).toBeInTheDocument();
     expect(screen.getByText("Updated")).toBeInTheDocument();
@@ -117,7 +149,15 @@ describe("TaskHeader", () => {
 
   it("keeps only functional task header actions", async () => {
     const update = vi.fn().mockResolvedValue(undefined);
-    render(<TaskHeader entriesLoaded={0} onUpdate={update} task={task} />);
+    render(
+      <TaskHeader
+        entriesLoaded={0}
+        onLogTime={vi.fn()}
+        onUpdate={update}
+        task={task}
+        totalMinutes={0}
+      />,
+    );
 
     expect(screen.queryByLabelText("More actions")).not.toBeInTheDocument();
     fireEvent.click(screen.getByLabelText("Pause work session"));
@@ -127,12 +167,32 @@ describe("TaskHeader", () => {
     );
   });
 
+  it("shows a time chip and a 'Log time' button in the task header", async () => {
+    render(
+      <TaskHeader
+        entriesLoaded={2}
+        onLogTime={vi.fn()}
+        onUpdate={vi.fn()}
+        task={task}
+        totalMinutes={11 * 60 + 15}
+      />,
+    );
+
+    expect(screen.getByText("1d 3h 15m")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Log time" }));
+    expect(
+      await screen.findByRole("dialog", { name: /Log time/i }),
+    ).toBeInTheDocument();
+  });
+
   it("hides the work-session quick action for done tasks", () => {
     render(
       <TaskHeader
         entriesLoaded={0}
+        onLogTime={vi.fn()}
         onUpdate={vi.fn()}
         task={{ ...task, status: "done" }}
+        totalMinutes={0}
       />,
     );
 
@@ -146,7 +206,15 @@ describe("TaskHeader", () => {
 
   it("closes the status picker after selecting a status", async () => {
     const update = vi.fn().mockResolvedValue(undefined);
-    render(<TaskHeader entriesLoaded={0} onUpdate={update} task={task} />);
+    render(
+      <TaskHeader
+        entriesLoaded={0}
+        onLogTime={vi.fn()}
+        onUpdate={update}
+        task={task}
+        totalMinutes={0}
+      />,
+    );
 
     fireEvent.click(screen.getByLabelText("Status: Active. Click to change."));
     expect(screen.getByText("Done")).toBeInTheDocument();

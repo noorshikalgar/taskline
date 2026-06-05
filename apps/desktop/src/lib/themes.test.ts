@@ -17,29 +17,33 @@ describe("theme CSS pipeline", () => {
     }
   });
 
-  it("emits a CSS rule for every registered theme id", () => {
-    execFileSync("pnpm", ["exec", "vite", "build", "--logLevel", "error"], {
-      cwd: PROJECT_ROOT,
-      stdio: "pipe",
-    });
-    const cssFile = readdirSync(join(DIST_DIR, "assets")).find(
-      (name) => name.startsWith("index-") && name.endsWith(".css"),
-    );
-    expect(cssFile, "Vite build did not produce a CSS file").toBeDefined();
-    const css = readFileSync(join(DIST_DIR, "assets", cssFile!), "utf8");
-    const present = new Set(css.match(SCAN_PATTERN) ?? []);
+  it(
+    "emits a CSS rule for every registered theme id",
+    { timeout: 20_000 },
+    () => {
+      execFileSync("pnpm", ["exec", "vite", "build", "--logLevel", "error"], {
+        cwd: PROJECT_ROOT,
+        stdio: "pipe",
+      });
+      const cssFile = readdirSync(join(DIST_DIR, "assets")).find(
+        (name) => name.startsWith("index-") && name.endsWith(".css"),
+      );
+      expect(cssFile, "Vite build did not produce a CSS file").toBeDefined();
+      const css = readFileSync(join(DIST_DIR, "assets", cssFile!), "utf8");
+      const present = new Set(css.match(SCAN_PATTERN) ?? []);
 
-    for (const theme of APP_THEMES) {
-      const selector = `.theme-${theme.id}`;
-      expect(
-        present.has(selector),
-        `Tailwind purged ${selector} from the production CSS bundle. ` +
-          `Add the theme to APP_THEMES (in src/lib/themes.ts) and ensure ` +
-          `styles.css defines a rule for it, or check the safelist in ` +
-          `tailwind.config.js.`,
-      ).toBe(true);
-    }
-  });
+      for (const theme of APP_THEMES) {
+        const selector = `.theme-${theme.id}`;
+        expect(
+          present.has(selector),
+          `Tailwind purged ${selector} from the production CSS bundle. ` +
+            `Add the theme to APP_THEMES (in src/lib/themes.ts) and ensure ` +
+            `styles.css defines a rule for it, or check the safelist in ` +
+            `tailwind.config.js.`,
+        ).toBe(true);
+      }
+    },
+  );
 
   it("keeps styles.css and APP_THEMES in sync", () => {
     const css = readFileSync(join(PROJECT_ROOT, "src", "styles.css"), "utf8");

@@ -1,5 +1,6 @@
-import { Pause, Play } from "lucide-react";
+import { Clock4, Pause, Play } from "lucide-react";
 import { KeyboardEvent, useEffect, useRef, useState } from "react";
+import { LogTimeDialog, type LogTimeInput } from "@/components/LogTimeDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +13,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { formatDuration } from "@/lib/duration";
 import { STATUS_DOT, STATUS_LABEL, STATUS_ORDER } from "@/lib/status";
 import { TASK_STATUSES, type Task, type TaskStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -19,7 +21,9 @@ import { cn } from "@/lib/utils";
 interface Props {
   task: Task;
   entriesLoaded: number;
+  totalMinutes: number;
   pendingTitleEdit?: boolean;
+  onLogTime: (input: LogTimeInput) => Promise<void>;
   onPendingTitleEditConsumed?: () => void;
   onUpdate: (task: Task) => Promise<void>;
 }
@@ -29,7 +33,9 @@ const TITLE_MAX_LENGTH = 140;
 export function TaskHeader({
   task,
   entriesLoaded,
+  totalMinutes,
   pendingTitleEdit,
+  onLogTime,
   onPendingTitleEditConsumed,
   onUpdate,
 }: Props) {
@@ -42,6 +48,7 @@ export function TaskHeader({
     "idle",
   );
   const [statusOpen, setStatusOpen] = useState(false);
+  const [logTimeOpen, setLogTimeOpen] = useState(false);
   const titleInput = useRef<HTMLInputElement>(null);
   const titleInputMounted = useRef(false);
 
@@ -265,6 +272,26 @@ export function TaskHeader({
         <MetaChip label="Created" value={formatShortDate(task.createdAt)} />
         <MetaChip label="Updated" value={formatShortDateTime(task.updatedAt)} />
         <MetaChip label="Updates" value={String(entriesLoaded)} mono />
+        <MetaChip
+          label="Time"
+          mono
+          value={totalMinutes > 0 ? formatDuration(totalMinutes) : "0m"}
+        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              aria-label="Log time"
+              className="ml-0.5 h-6 gap-1 px-2 text-[10px]"
+              onClick={() => setLogTimeOpen(true)}
+              size="sm"
+              variant="outline"
+            >
+              <Clock4 className="size-3" />
+              Log time
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Record time spent on this task</TooltipContent>
+        </Tooltip>
         {titleState === "saving" && (
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             · saving title
@@ -323,6 +350,12 @@ export function TaskHeader({
           </span>
         </span>
       </form>
+      <LogTimeDialog
+        onOpenChange={setLogTimeOpen}
+        onSubmit={onLogTime}
+        open={logTimeOpen}
+        taskTitle={task.title}
+      />
     </header>
   );
 }

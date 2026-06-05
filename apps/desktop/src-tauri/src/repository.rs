@@ -133,6 +133,8 @@ pub struct WorkLogEntry {
     pub occurred_at: String,
     pub created_at: String,
     pub updated_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_minutes: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -142,6 +144,8 @@ pub struct CreateEntryInput {
     pub entry_type: String,
     pub content_markdown: String,
     pub visibility: String,
+    #[serde(default)]
+    pub duration_minutes: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -151,6 +155,8 @@ pub struct UpdateEntryInput {
     pub entry_type: String,
     pub content_markdown: String,
     pub visibility: String,
+    #[serde(default)]
+    pub duration_minutes: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -229,6 +235,7 @@ impl Database {
         connection.execute_batch(MIGRATION)?;
         connection.execute_batch(ATTACHMENT_MIGRATION)?;
         Self::ensure_tasks_folder_column(connection)?;
+        Self::ensure_work_log_duration_column(connection)?;
         connection.execute_batch(FOLDER_MIGRATION)?;
         Ok(())
     }
@@ -244,6 +251,22 @@ impl Database {
         }
         connection.execute(
             "ALTER TABLE tasks ADD COLUMN folder_id TEXT REFERENCES folders(id)",
+            [],
+        )?;
+        Ok(())
+    }
+
+    fn ensure_work_log_duration_column(connection: &Connection) -> Result<()> {
+        let mut pragma_columns = connection.prepare("PRAGMA table_info(work_log_entries)")?;
+        let names: Vec<String> = pragma_columns
+            .query_map([], |row| row.get::<_, String>(1))?
+            .map(|entry| entry.map_err(RepositoryError::Database))
+            .collect::<Result<Vec<_>>>()?;
+        if names.iter().any(|name| name == "duration_minutes") {
+            return Ok(());
+        }
+        connection.execute(
+            "ALTER TABLE work_log_entries ADD COLUMN duration_minutes INTEGER",
             [],
         )?;
         Ok(())
@@ -408,7 +431,7 @@ impl Database {
         let connection = self.connection()?;
         let mut statement = connection.prepare(
             "SELECT id, task_id, entry_type, content_markdown, visibility, occurred_at,
-             created_at, updated_at FROM work_log_entries
+             created_at, updated_at, duration_minutes FROM work_log_entries
              WHERE task_id = ?1 AND deleted_at IS NULL
              ORDER BY occurred_at DESC, id DESC LIMIT ?2 OFFSET ?3",
         )?;
@@ -422,6 +445,13 @@ impl Database {
         allowed(&input.entry_type, ENTRY_TYPES, "entry type")?;
         allowed(&input.visibility, VISIBILITIES, "visibility")?;
         let content = required(input.content_markdown, "Entry content")?;
+        if let Some(value) = input.duration_minutes {
+            if value < 0 {
+                return Err(RepositoryError::Invalid(
+                    "Duration must be a positive number of minutes.".into(),
+                ));
+            }
+        }
         let id = id();
         let now = now();
         let mut connection = self.connection()?;
@@ -429,9 +459,18 @@ impl Database {
         ensure_task(&transaction, &input.task_id)?;
         transaction.execute(
             "INSERT INTO work_log_entries
-             (id, task_id, entry_type, content_markdown, visibility, occurred_at, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6, ?6)",
-            params![id, input.task_id, input.entry_type, content, input.visibility, now],
+             (id, task_id, entry_type, content_markdown, visibility, occurred_at,
+              created_at, updated_at, duration_minutes)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6, ?6, ?7)",
+            params![
+                id,
+                input.task_id,
+                input.entry_type,
+                content,
+                input.visibility,
+                now,
+                input.duration_minutes,
+            ],
         )?;
         transaction.execute(
             "UPDATE tasks SET updated_at = ?2 WHERE id = ?1",
@@ -445,13 +484,28 @@ impl Database {
         allowed(&input.entry_type, ENTRY_TYPES, "entry type")?;
         allowed(&input.visibility, VISIBILITIES, "visibility")?;
         let content = required(input.content_markdown, "Entry content")?;
+        if let Some(value) = input.duration_minutes {
+            if value < 0 {
+                return Err(RepositoryError::Invalid(
+                    "Duration must be a positive number of minutes.".into(),
+                ));
+            }
+        }
         let mut connection = self.connection()?;
         let transaction = connection.transaction()?;
         write_revision(&transaction, &input.id, "user_edit")?;
         let changed = transaction.execute(
             "UPDATE work_log_entries SET entry_type = ?2, content_markdown = ?3,
-             visibility = ?4, updated_at = ?5 WHERE id = ?1 AND deleted_at IS NULL",
-            params![input.id, input.entry_type, content, input.visibility, now()],
+             visibility = ?4, duration_minutes = ?5, updated_at = ?6
+             WHERE id = ?1 AND deleted_at IS NULL",
+            params![
+                input.id,
+                input.entry_type,
+                content,
+                input.visibility,
+                input.duration_minutes,
+                now()
+            ],
         )?;
         if changed == 0 {
             return Err(RepositoryError::NotFound("Entry"));
@@ -620,7 +674,8 @@ fn write_revision(transaction: &Transaction<'_>, entry_id: &str, source: &str) -
     let entry = transaction
         .query_row(
             "SELECT id, task_id, entry_type, content_markdown, visibility, occurred_at,
-             created_at, updated_at FROM work_log_entries WHERE id = ?1 AND deleted_at IS NULL",
+             created_at, updated_at, duration_minutes FROM work_log_entries
+             WHERE id = ?1 AND deleted_at IS NULL",
             params![entry_id],
             map_entry,
         )
@@ -706,7 +761,8 @@ fn get_entry(connection: &Connection, entry_id: &str) -> Result<WorkLogEntry> {
     connection
         .query_row(
             "SELECT id, task_id, entry_type, content_markdown, visibility, occurred_at,
-             created_at, updated_at FROM work_log_entries WHERE id = ?1 AND deleted_at IS NULL",
+             created_at, updated_at, duration_minutes FROM work_log_entries
+             WHERE id = ?1 AND deleted_at IS NULL",
             params![entry_id],
             map_entry,
         )
@@ -746,6 +802,7 @@ fn map_entry(row: &Row<'_>) -> rusqlite::Result<WorkLogEntry> {
         occurred_at: row.get(5)?,
         created_at: row.get(6)?,
         updated_at: row.get(7)?,
+        duration_minutes: row.get(8)?,
     })
 }
 
@@ -825,6 +882,7 @@ mod tests {
                 entry_type: "finding".into(),
                 content_markdown: "Drafts need durable recovery.".into(),
                 visibility: "private".into(),
+                duration_minutes: None,
             })
             .unwrap()
     }
@@ -845,6 +903,23 @@ mod tests {
     }
 
     #[test]
+    fn select_after_update_returns_duration_minutes() {
+        let database = Database::memory().unwrap();
+        let task = task(&database);
+        let original = entry(&database, &task.id);
+        let edited = database
+            .update_entry(UpdateEntryInput {
+                id: original.id.clone(),
+                entry_type: "decision".into(),
+                content_markdown: "Keep drafts until SQLite confirms.".into(),
+                visibility: "report".into(),
+                duration_minutes: Some(120),
+            })
+            .unwrap();
+        assert_eq!(edited.duration_minutes, Some(120));
+    }
+
+    #[test]
     fn editing_and_restoring_preserve_revisions() {
         let database = Database::memory().unwrap();
         let task = task(&database);
@@ -855,6 +930,7 @@ mod tests {
                 entry_type: "decision".into(),
                 content_markdown: "Keep drafts until SQLite confirms.".into(),
                 visibility: "report".into(),
+                duration_minutes: None,
             })
             .unwrap();
         assert_eq!(edited.entry_type, "decision");

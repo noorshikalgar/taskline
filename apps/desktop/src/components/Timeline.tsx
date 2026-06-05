@@ -1,5 +1,12 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { ExternalLink, History, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import {
+  Clock4,
+  ExternalLink,
+  History,
+  Pencil,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -8,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
+import { formatDuration } from "@/lib/duration";
 import { ImageViewerDialog } from "@/components/ImageViewerDialog";
 import { extractLinkPreviews, isLongEntry } from "@/lib/content";
 import {
@@ -248,6 +256,15 @@ function TimelineEntry({
           >
             {entry.visibility === "report" ? "Report eligible" : "Private"}
           </span>
+          {entry.durationMinutes != null && entry.durationMinutes > 0 && (
+            <span
+              aria-label={`Time spent ${formatDuration(entry.durationMinutes)}`}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-foreground"
+            >
+              <Clock4 className="size-2.5 text-muted-foreground" />
+              {formatDuration(entry.durationMinutes)}
+            </span>
+          )}
           {edited && (
             <span className="text-[10px] italic text-muted-foreground">
               edited {formatTime(entry.updatedAt)}

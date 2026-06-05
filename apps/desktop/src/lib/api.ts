@@ -44,18 +44,32 @@ export const api = {
     entryType: EntryType,
     contentMarkdown: string,
     visibility: Visibility,
+    durationMinutes: number | null = null,
   ) =>
     invoke<WorkLogEntry>("create_entry", {
-      input: { taskId, entryType, contentMarkdown, visibility },
+      input: {
+        taskId,
+        entryType,
+        contentMarkdown,
+        visibility,
+        durationMinutes,
+      },
     }),
   updateEntry: (
     id: string,
     entryType: EntryType,
     contentMarkdown: string,
     visibility: Visibility,
+    durationMinutes: number | null = null,
   ) =>
     invoke<WorkLogEntry>("update_entry", {
-      input: { id, entryType, contentMarkdown, visibility },
+      input: {
+        id,
+        entryType,
+        contentMarkdown,
+        visibility,
+        durationMinutes,
+      },
     }),
   listRevisions: (entryId: string) =>
     invoke<WorkLogRevision[]>("list_revisions", { entryId }),

@@ -36,6 +36,7 @@ ${"Long context. ".repeat(80)}`,
   occurredAt: "2026-06-05T00:00:00Z",
   createdAt: "2026-06-05T00:00:00Z",
   updatedAt: "2026-06-05T00:00:00Z",
+  durationMinutes: null,
 };
 
 afterEach(cleanup);
@@ -119,6 +120,30 @@ describe("Timeline", () => {
     expect(screen.getByText("125%")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reset zoom" }));
     expect(screen.getByText("100%")).toBeInTheDocument();
+  });
+
+  it("renders a duration chip on entries that have a durationMinutes value", () => {
+    const entryWithTime: WorkLogEntry = {
+      ...entry,
+      id: "entry-timed",
+      durationMinutes: 11 * 60 + 15,
+    };
+    render(
+      <Timeline
+        attachments={[]}
+        entries={[entry, entryWithTime]}
+        hasMore={false}
+        historyEntryId={null}
+        onEdit={vi.fn()}
+        onHistory={vi.fn()}
+        onLoadMore={vi.fn()}
+        onRestoreRevision={vi.fn()}
+        onTrash={vi.fn()}
+        revisions={[]}
+      />,
+    );
+
+    expect(screen.getByLabelText("Time spent 1d 3h 15m")).toBeInTheDocument();
   });
 
   it("pans the image on mouse drag and resets on the reset button", async () => {

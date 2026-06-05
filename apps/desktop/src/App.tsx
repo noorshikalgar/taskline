@@ -1,5 +1,6 @@
 import {
   Archive,
+  Clock4,
   Download,
   Info,
   ListTodo,
@@ -51,6 +52,7 @@ import {
 } from "@/components/ui/tooltip";
 import { api } from "@/lib/api";
 import { APP_THEMES, isAppTheme, type AppThemeId } from "@/lib/themes";
+import { formatDuration } from "@/lib/duration";
 import {
   type Attachment,
   type EntryType,
@@ -83,6 +85,11 @@ export default function App() {
   const [pendingTitleEdit, setPendingTitleEdit] = useState(false);
   const [entries, setEntries] = useState<WorkLogEntry[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+
+  const totalMinutes = useMemo(
+    () => entries.reduce((sum, entry) => sum + (entry.durationMinutes ?? 0), 0),
+    [entries],
+  );
   const [revisions, setRevisions] = useState<WorkLogRevision[]>([]);
   const [historyEntryId, setHistoryEntryId] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -228,9 +235,16 @@ export default function App() {
     content: string,
     visibility: Visibility,
     images: PendingImage[],
+    durationMinutes: number | null = null,
   ) {
     if (!selectedId) return;
-    const entry = await api.createEntry(selectedId, type, content, visibility);
+    const entry = await api.createEntry(
+      selectedId,
+      type,
+      content,
+      visibility,
+      durationMinutes,
+    );
     const savedImages: Attachment[] = [];
     for (const image of images) {
       try {
@@ -250,6 +264,29 @@ export default function App() {
     }
     setEntries((current) => [entry, ...current]);
     setAttachments((current) => [...current, ...savedImages]);
+    await loadTasks();
+  }
+
+  async function logTime(input: {
+    occurredAt: string;
+    durationMinutes: number;
+    contentMarkdown: string;
+    visibility: Visibility;
+  }) {
+    if (!selectedId) return;
+    const entry = await api.createEntry(
+      selectedId,
+      "note",
+      input.contentMarkdown,
+      input.visibility,
+      input.durationMinutes,
+    );
+    const stamped = { ...entry, occurredAt: input.occurredAt };
+    setEntries((current) => {
+      const next = [stamped, ...current];
+      next.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+      return next;
+    });
     await loadTasks();
   }
 
@@ -463,10 +500,12 @@ export default function App() {
               <TaskHeader
                 entriesLoaded={entries.length}
                 key={selectedTask.id}
+                onLogTime={logTime}
                 onPendingTitleEditConsumed={() => setPendingTitleEdit(false)}
                 onUpdate={updateTask}
                 pendingTitleEdit={pendingTitleEdit}
                 task={selectedTask}
+                totalMinutes={totalMinutes}
               />
               <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1">
                 <ThreadColumn
