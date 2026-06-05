@@ -13,6 +13,8 @@ use uuid::Uuid;
 const MIGRATION: &str = include_str!("../migrations/001_initial.sql");
 const ATTACHMENT_MIGRATION: &str = include_str!("../migrations/002_attachments.sql");
 const FOLDER_MIGRATION: &str = include_str!("../migrations/003_folders.sql");
+const WORKLOG_ENTRY_TYPE_MIGRATION: &str =
+    include_str!("../migrations/004_worklog_entry_type.sql");
 const MAX_ATTACHMENT_BYTES: usize = 10 * 1024 * 1024;
 const TASK_STATUSES: &[&str] = &["planned", "active", "blocked", "paused", "done", "archived"];
 const ENTRY_TYPES: &[&str] = &[
@@ -22,6 +24,7 @@ const ENTRY_TYPES: &[&str] = &[
     "blocker",
     "decision",
     "next_step",
+    "worklog",
 ];
 const VISIBILITIES: &[&str] = &["private", "report"];
 
@@ -236,6 +239,7 @@ impl Database {
         connection.execute_batch(ATTACHMENT_MIGRATION)?;
         Self::ensure_tasks_folder_column(connection)?;
         Self::ensure_work_log_duration_column(connection)?;
+        Self::ensure_worklog_entry_type(connection)?;
         connection.execute_batch(FOLDER_MIGRATION)?;
         Ok(())
     }
@@ -267,6 +271,34 @@ impl Database {
         }
         connection.execute(
             "ALTER TABLE work_log_entries ADD COLUMN duration_minutes INTEGER",
+            [],
+        )?;
+        Ok(())
+    }
+
+    fn ensure_worklog_entry_type(connection: &Connection) -> Result<()> {
+        let applied: Option<String> = connection
+            .query_row(
+                "SELECT value FROM schema_meta WHERE key = 'worklog_entry_type_applied'",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if applied.as_deref() == Some("1") {
+            return Ok(());
+        }
+        let worklog_count: i64 = connection.query_row(
+            "SELECT COUNT(*) FROM work_log_entries WHERE entry_type = 'worklog'",
+            [],
+            |row| row.get(0),
+        )?;
+        if worklog_count == 0 {
+            // No worklog rows yet — still need to widen the CHECK constraint
+            // so the first one can be inserted.
+        }
+        connection.execute_batch(WORKLOG_ENTRY_TYPE_MIGRATION)?;
+        connection.execute(
+            "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('worklog_entry_type_applied', '1')",
             [],
         )?;
         Ok(())
@@ -903,6 +935,27 @@ mod tests {
     }
 
     #[test]
+    fn worklog_entry_type_is_accepted_and_round_trips() {
+        let database = Database::memory().unwrap();
+        let task = task(&database);
+        let logged = database
+            .create_entry(CreateEntryInput {
+                task_id: task.id.clone(),
+                entry_type: "worklog".into(),
+                content_markdown: "Logged 1d 3h on the sidebar.".into(),
+                visibility: "private".into(),
+                duration_minutes: Some(8 * 60 + 3 * 60),
+            })
+            .unwrap();
+        assert_eq!(logged.entry_type, "worklog");
+        assert_eq!(logged.duration_minutes, Some(8 * 60 + 3 * 60));
+
+        let listed = database.list_entries(&task.id, 50, 0).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].entry_type, "worklog");
+    }
+
+    #[test]
     fn select_after_update_returns_duration_minutes() {
         let database = Database::memory().unwrap();
         let task = task(&database);
@@ -963,6 +1016,42 @@ mod tests {
         };
         let reopened = Database::open(&path).unwrap();
         assert_eq!(reopened.list_tasks().unwrap()[0].id, task_id);
+    }
+
+    #[test]
+    fn reopens_a_legacy_database_and_widens_the_entry_type_constraint() {
+        // Lay down a v1-style schema (no 'worklog' in the CHECK, no
+        // duration_minutes column, no schema_meta key for the migration).
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("legacy.sqlite3");
+        let legacy = Connection::open(&path).unwrap();
+        legacy.execute_batch(MIGRATION).unwrap();
+        legacy.execute_batch(ATTACHMENT_MIGRATION).unwrap();
+        // Strip the marker that ensure_worklog_entry_type would look for
+        // so reopening forces the constraint widening.
+        legacy
+            .execute(
+                "DELETE FROM schema_meta WHERE key = 'worklog_entry_type_applied'",
+                [],
+            )
+            .unwrap();
+        drop(legacy);
+
+        // Reopening the same file should run the migration and accept
+        // 'worklog' entries without losing existing rows.
+        let database = Database::open(&path).unwrap();
+        let task = task(&database);
+        let logged = database
+            .create_entry(CreateEntryInput {
+                task_id: task.id.clone(),
+                entry_type: "worklog".into(),
+                content_markdown: "Logged 2h after the schema widened.".into(),
+                visibility: "private".into(),
+                duration_minutes: Some(120),
+            })
+            .unwrap();
+        assert_eq!(logged.entry_type, "worklog");
+        assert_eq!(logged.duration_minutes, Some(120));
     }
 
     #[test]

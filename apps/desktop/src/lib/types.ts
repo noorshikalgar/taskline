@@ -5,6 +5,7 @@ export const ENTRY_TYPES = [
   "blocker",
   "decision",
   "next_step",
+  "worklog",
 ] as const;
 
 export const TASK_STATUSES = [

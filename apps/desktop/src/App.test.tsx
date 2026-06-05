@@ -319,4 +319,63 @@ describe("TaskHeader", () => {
     expect(screen.getByText("Todo 0")).toBeInTheDocument();
     expect(screen.getByText("Done 0")).toBeInTheDocument();
   });
+
+  it("filters the timeline by entry type, including the new Worklog filter", async () => {
+    vi.mocked(api.listTasks).mockResolvedValue([task]);
+    vi.mocked(api.listFolders).mockResolvedValue([]);
+    vi.mocked(api.listEntries).mockResolvedValue([
+      {
+        id: "e-note",
+        taskId: task.id,
+        entryType: "note",
+        contentMarkdown: "A regular note",
+        visibility: "private",
+        occurredAt: "2026-06-05T10:00:00Z",
+        createdAt: "2026-06-05T10:00:00Z",
+        updatedAt: "2026-06-05T10:00:00Z",
+        durationMinutes: null,
+      },
+      {
+        id: "e-worklog",
+        taskId: task.id,
+        entryType: "worklog",
+        contentMarkdown: "Logged 1d 3h on the sidebar.",
+        visibility: "private",
+        occurredAt: "2026-06-05T11:00:00Z",
+        createdAt: "2026-06-05T11:00:00Z",
+        updatedAt: "2026-06-05T11:00:00Z",
+        durationMinutes: 8 * 60 + 3 * 60,
+      },
+      {
+        id: "e-progress",
+        taskId: task.id,
+        entryType: "progress",
+        contentMarkdown: "Filter shipped.",
+        visibility: "private",
+        occurredAt: "2026-06-05T12:00:00Z",
+        createdAt: "2026-06-05T12:00:00Z",
+        updatedAt: "2026-06-05T12:00:00Z",
+        durationMinutes: null,
+      },
+    ]);
+    vi.mocked(api.listAttachments).mockResolvedValue([]);
+    Element.prototype.scrollIntoView = vi.fn();
+    render(<App />);
+
+    await screen.findByText("A regular note");
+    expect(
+      screen.getByText("Logged 1d 3h on the sidebar."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Filter shipped.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Worklog" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("A regular note")).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByText("Filter shipped.")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Logged 1d 3h on the sidebar."),
+    ).toBeInTheDocument();
+  });
 });

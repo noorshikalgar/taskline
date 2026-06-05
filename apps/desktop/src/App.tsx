@@ -276,7 +276,7 @@ export default function App() {
     if (!selectedId) return;
     const entry = await api.createEntry(
       selectedId,
-      "note",
+      "worklog",
       input.contentMarkdown,
       input.visibility,
       input.durationMinutes,
@@ -938,6 +938,7 @@ function ThreadColumn({
 }) {
   const FILTERS: { value: EntryType | "all"; label: string }[] = [
     { value: "all", label: "All" },
+    { value: "worklog", label: "Worklog" },
     { value: "progress", label: "Progress" },
     { value: "finding", label: "Findings" },
     { value: "blocker", label: "Blockers" },
