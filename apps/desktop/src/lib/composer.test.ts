@@ -167,4 +167,20 @@ describe("resolveMentionsInContent", () => {
       resolveMentionsInContent("@note first @progress second", "note"),
     ).toEqual({ type: "note", cleaned: "first second" });
   });
+
+  it("preserves newlines so Markdown blocks render in the timeline", () => {
+    expect(resolveMentionsInContent("## hi\n### hi", "note")).toEqual({
+      type: null,
+      cleaned: "## hi\n### hi",
+    });
+
+    expect(resolveMentionsInContent("- list\n- list", "note")).toEqual({
+      type: null,
+      cleaned: "- list\n- list",
+    });
+
+    expect(
+      resolveMentionsInContent("@note first\n@progress second", "note"),
+    ).toEqual({ type: "note", cleaned: "first\nsecond" });
+  });
 });

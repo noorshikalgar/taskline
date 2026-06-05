@@ -98,7 +98,10 @@ export function resolveMentionsInContent(
   });
   return {
     type,
-    cleaned: cleaned.replace(/\s+/g, " ").trim(),
+    cleaned: cleaned
+      .replace(/[^\S\n]+/g, " ")
+      .replace(/[ \t]+(\n|$)/g, "$1")
+      .trim(),
   };
 }
 
