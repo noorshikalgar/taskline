@@ -218,27 +218,19 @@ export function TaskHeader({
 
       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
         <Popover onOpenChange={setStatusOpen} open={statusOpen}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <PopoverTrigger asChild>
-                <button
-                  aria-label={`Status: ${statusLabel}. Click to change.`}
-                  className="inline-flex h-6 items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 text-left text-foreground hover:bg-accent"
-                  type="button"
-                >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "size-1.5 rounded-full",
-                      STATUS_DOT[task.status],
-                    )}
-                  />
-                  <span className="font-medium">{statusLabel}</span>
-                </button>
-              </PopoverTrigger>
-            </TooltipTrigger>
-            <TooltipContent>Change status</TooltipContent>
-          </Tooltip>
+          <PopoverTrigger asChild>
+            <button
+              aria-label={`Status: ${statusLabel}. Click to change.`}
+              className="inline-flex h-6 items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 text-left text-foreground hover:bg-accent"
+              type="button"
+            >
+              <span
+                aria-hidden
+                className={cn("size-1.5 rounded-full", STATUS_DOT[task.status])}
+              />
+              <span className="font-medium">{statusLabel}</span>
+            </button>
+          </PopoverTrigger>
           <PopoverContent align="start" className="w-44 p-1">
             <p className="px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Status

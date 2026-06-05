@@ -135,6 +135,7 @@ export function Composer({ taskId, onSubmit }: Props) {
   const [mentionIndex, setMentionIndex] = useState(0);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const mentionList = useRef<HTMLDivElement>(null);
   const links = extractLinkPreviews(content);
 
   const filteredOptions = useMemo(
@@ -163,6 +164,18 @@ export function Composer({ taskId, onSubmit }: Props) {
       setMentionIndex(0);
     }
   }, [filteredOptions, mention.active, mentionIndex]);
+
+  useEffect(() => {
+    if (!mention.active) return;
+    const list = mentionList.current;
+    if (!list) return;
+    const active = list.querySelector<HTMLElement>(
+      `[data-mention-index="${mentionIndex}"]`,
+    );
+    if (active) {
+      active.scrollIntoView({ block: "nearest" });
+    }
+  }, [mention.active, mentionIndex, filteredOptions.length]);
 
   const updateMention = useCallback((value: string) => {
     const cursor = textarea.current?.selectionStart ?? value.length;
@@ -317,6 +330,7 @@ export function Composer({ taskId, onSubmit }: Props) {
               <div
                 aria-label="Entry type suggestions"
                 className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+                ref={mentionList}
                 role="listbox"
               >
                 {filteredOptions.map((option, index) => {
@@ -331,6 +345,7 @@ export function Composer({ taskId, onSubmit }: Props) {
                           ? "bg-accent text-accent-foreground"
                           : "hover:bg-accent/60",
                       )}
+                      data-mention-index={index}
                       key={option.type}
                       onMouseDown={(event) => {
                         event.preventDefault();

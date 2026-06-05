@@ -123,4 +123,32 @@ describe("Composer", () => {
       screen.queryByLabelText("Entry type suggestions"),
     ).not.toBeInTheDocument();
   });
+
+  it("navigates the @-mention list with arrow keys and scrolls the active option into view", () => {
+    const scrollIntoView = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    try {
+      render(<Composer onSubmit={vi.fn()} taskId="task-arrow" />);
+
+      const composer = screen.getByPlaceholderText(/What happened\?/);
+      fireEvent.change(composer, { target: { value: "@" } });
+
+      const first = screen.getByRole("option", { name: /Note/ });
+      const second = screen.getByRole("option", { name: /Progress/ });
+      expect(first).toHaveAttribute("aria-selected", "true");
+      expect(second).toHaveAttribute("aria-selected", "false");
+
+      fireEvent.keyDown(composer, { key: "ArrowDown" });
+      expect(second).toHaveAttribute("aria-selected", "true");
+
+      fireEvent.keyDown(composer, { key: "ArrowUp" });
+      expect(first).toHaveAttribute("aria-selected", "true");
+
+      expect(scrollIntoView).toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
 });
