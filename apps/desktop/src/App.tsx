@@ -1,12 +1,21 @@
 import {
   Archive,
+  Download,
   Info,
   ListTodo,
   Moon,
+  RefreshCw,
+  RotateCcw,
   Search,
   Settings,
   Sun,
 } from "lucide-react";
+import { relaunch } from "@tauri-apps/plugin-process";
+import {
+  check,
+  type DownloadEvent,
+  type Update,
+} from "@tauri-apps/plugin-updater";
 import { type MouseEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -639,9 +648,85 @@ function SettingsDialog({
   onOpenChange: (open: boolean) => void;
   onThemeChange: (theme: AppTheme) => void;
 }) {
+  const [update, setUpdate] = useState<Update | null>(null);
+  const [updateState, setUpdateState] = useState<
+    | "idle"
+    | "checking"
+    | "available"
+    | "none"
+    | "downloading"
+    | "installed"
+    | "error"
+  >("idle");
+  const [updateMessage, setUpdateMessage] = useState(
+    "Check GitHub Releases when you want. Updates never run automatically.",
+  );
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
+  async function checkForUpdates() {
+    setUpdateState("checking");
+    setUpdateMessage("Checking GitHub Releases...");
+    setDownloadProgress(0);
+    try {
+      const next = await check({ timeout: 30_000 });
+      if (!next) {
+        setUpdate(null);
+        setUpdateState("none");
+        setUpdateMessage("You are already on the latest available version.");
+        return;
+      }
+      setUpdate(next);
+      setUpdateState("available");
+      setUpdateMessage(
+        `Version ${next.version} is available. Review it before installing.`,
+      );
+    } catch (cause) {
+      setUpdate(null);
+      setUpdateState("error");
+      setUpdateMessage(`Could not check for updates: ${String(cause)}`);
+    }
+  }
+
+  async function installUpdate() {
+    if (!update) return;
+    setUpdateState("downloading");
+    setUpdateMessage("Downloading update...");
+    setDownloadProgress(0);
+
+    let downloaded = 0;
+    let total = 0;
+    const onEvent = (event: DownloadEvent) => {
+      if (event.event === "Started") {
+        downloaded = 0;
+        total = event.data.contentLength ?? 0;
+        setDownloadProgress(0);
+      } else if (event.event === "Progress") {
+        downloaded += event.data.chunkLength;
+        if (total > 0) {
+          setDownloadProgress(
+            Math.min(100, Math.round((downloaded / total) * 100)),
+          );
+        }
+      } else {
+        setDownloadProgress(100);
+      }
+    };
+
+    try {
+      await update.downloadAndInstall(onEvent, { timeout: 120_000 });
+      setUpdateState("installed");
+      setUpdateMessage(
+        "Update installed. Restart when you are ready; your local Taskline data stays in the app-data folder.",
+      );
+    } catch (cause) {
+      setUpdateState("error");
+      setUpdateMessage(`Could not install update: ${String(cause)}`);
+    }
+  }
+
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="grid h-[460px] w-[min(760px,calc(100vw-32px))] max-w-none grid-cols-[180px_minmax(0,1fr)] gap-0 overflow-hidden p-0">
+      <DialogContent className="grid h-[520px] w-[min(820px,calc(100vw-32px))] max-w-none grid-cols-[180px_minmax(0,1fr)] gap-0 overflow-hidden p-0">
         <aside className="border-r border-border bg-card/60 p-3">
           <DialogTitle className="px-2 py-2 text-base">Settings</DialogTitle>
           <button
@@ -688,6 +773,75 @@ function SettingsDialog({
                 })}
               </SelectContent>
             </Select>
+          </div>
+          <div className="mt-8 max-w-xl border-t border-border pt-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <h3 className="text-sm font-medium">Updates</h3>
+                <p className="max-w-md text-xs leading-5 text-muted-foreground">
+                  Optional update checks use the latest signed GitHub Release.
+                  Installing an app update does not touch your local SQLite
+                  data.
+                </p>
+              </div>
+              <Button
+                disabled={
+                  updateState === "checking" || updateState === "downloading"
+                }
+                onClick={() => void checkForUpdates()}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw
+                  className={cn(
+                    "size-3.5",
+                    updateState === "checking" && "animate-spin",
+                  )}
+                />
+                Check
+              </Button>
+            </div>
+            <div className="mt-4 rounded-md border border-border bg-card p-3">
+              <p className="text-xs leading-5 text-muted-foreground">
+                {updateMessage}
+              </p>
+              {update?.body && updateState === "available" && (
+                <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-foreground">
+                  {update.body}
+                </p>
+              )}
+              {updateState === "downloading" && (
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width]"
+                    style={{ width: `${downloadProgress}%` }}
+                  />
+                </div>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {updateState === "available" && (
+                  <Button
+                    onClick={() => void installUpdate()}
+                    size="sm"
+                    type="button"
+                  >
+                    <Download className="size-3.5" />
+                    Download and install
+                  </Button>
+                )}
+                {updateState === "installed" && (
+                  <Button
+                    onClick={() => void relaunch()}
+                    size="sm"
+                    type="button"
+                  >
+                    <RotateCcw className="size-3.5" />
+                    Restart Taskline
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
         </section>
       </DialogContent>
