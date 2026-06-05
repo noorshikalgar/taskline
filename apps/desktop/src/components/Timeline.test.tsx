@@ -146,6 +146,51 @@ describe("Timeline", () => {
     expect(screen.getByLabelText("Time spent 1d 3h 15m")).toBeInTheDocument();
   });
 
+  it("toggles to a compact git-log style timeline with image markers", () => {
+    const imageOnlyEntry: WorkLogEntry = {
+      ...entry,
+      id: "entry-image",
+      entryType: "note",
+      contentMarkdown: "Attached image.",
+      durationMinutes: null,
+    };
+    const attachment: Attachment = {
+      id: "att-compact",
+      workLogEntryId: "entry-image",
+      originalName: "capture.png",
+      mediaType: "image/png",
+      path: "/tmp/capture.png",
+      byteSize: 2048,
+      createdAt: "2026-06-05T00:00:00Z",
+    };
+
+    render(
+      <Timeline
+        attachments={[attachment]}
+        entries={[entry, imageOnlyEntry]}
+        hasMore={false}
+        historyEntryId={null}
+        onEdit={vi.fn()}
+        onHistory={vi.fn()}
+        onLoadMore={vi.fn()}
+        onRestoreRevision={vi.fn()}
+        onTrash={vi.fn()}
+        revisions={[]}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show compact timeline" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Show detailed timeline" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Private").length).toBeGreaterThan(0);
+    expect(screen.getByText("[image]")).toBeInTheDocument();
+    expect(screen.queryByText("Show more")).not.toBeInTheDocument();
+  });
+
   it("pans the image on mouse drag and resets on the reset button", async () => {
     const attachment: Attachment = {
       id: "att-b",

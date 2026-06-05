@@ -3,6 +3,8 @@ import {
   Clock4,
   ExternalLink,
   History,
+  ListCollapse,
+  ListTree,
   Pencil,
   RotateCcw,
   Trash2,
@@ -94,6 +96,8 @@ export function Timeline({
   onTrash,
   onLoadMore,
 }: Props) {
+  const [compact, setCompact] = useState(false);
+
   if (!entries.length) {
     return (
       <div className="flex min-h-[240px] flex-col items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
@@ -106,9 +110,29 @@ export function Timeline({
   const groups = groupByDate(entries);
 
   return (
-    <section aria-label="Task timeline" className="flex flex-col gap-8 pt-6">
+    <section aria-label="Task timeline" className="flex flex-col gap-5 pt-6">
+      <div className="flex items-center justify-end">
+        <Button
+          aria-label={
+            compact ? "Show detailed timeline" : "Show compact timeline"
+          }
+          className="h-7 gap-1.5 px-2 text-xs"
+          onClick={() => setCompact((current) => !current)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          {compact ? (
+            <ListTree className="size-3.5" />
+          ) : (
+            <ListCollapse className="size-3.5" />
+          )}
+          {compact ? "Detailed" : "Compact"}
+        </Button>
+      </div>
+
       {groups.map((group) => (
-        <div key={group.label} className="flex flex-col gap-4">
+        <div key={group.label} className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
               {group.label}
@@ -118,12 +142,13 @@ export function Timeline({
               {group.items.length}
             </span>
           </div>
-          <ol className="flex flex-col gap-1">
+          <ol className={cn("flex flex-col", compact ? "gap-0" : "gap-1")}>
             {group.items.map((entry) => (
-              <TimelineEntry
+              <TimelineItem
                 attachments={attachments.filter(
                   (attachment) => attachment.workLogEntryId === entry.id,
                 )}
+                compact={compact}
                 entry={entry}
                 historyOpen={historyEntryId === entry.id}
                 key={entry.id}
@@ -149,6 +174,16 @@ export function Timeline({
   );
 }
 
+function TimelineItem({
+  compact,
+  ...props
+}: EntryProps & {
+  compact: boolean;
+}) {
+  if (compact) return <CompactTimelineEntry {...props} />;
+  return <TimelineEntry {...props} />;
+}
+
 interface EntryProps {
   entry: WorkLogEntry;
   attachments: Attachment[];
@@ -158,6 +193,79 @@ interface EntryProps {
   onHistory: Props["onHistory"];
   onRestoreRevision: Props["onRestoreRevision"];
   onTrash: Props["onTrash"];
+}
+
+function CompactTimelineEntry({ entry, attachments }: EntryProps) {
+  const summary = compactSummary(entry.contentMarkdown, attachments.length);
+  return (
+    <li
+      className="group relative grid min-w-0 grid-cols-[20px_minmax(92px,auto)_minmax(0,1fr)] items-center gap-2 rounded-sm py-1.5 transition-colors hover:bg-accent/40"
+      data-entry-id={entry.id}
+    >
+      <div className="relative flex h-full justify-center">
+        <span
+          aria-hidden
+          className={cn(
+            "z-10 mt-1.5 size-2 rounded-full ring-4 ring-background",
+            TYPE_DOT[entry.entryType],
+          )}
+        />
+        <span
+          aria-hidden
+          className="absolute top-4 bottom-[-0.75rem] w-px bg-border group-last:hidden"
+        />
+      </div>
+
+      <time
+        className="whitespace-nowrap font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+        dateTime={entry.occurredAt}
+      >
+        {formatCompactDateTime(entry.occurredAt)}
+      </time>
+
+      <div className="flex min-w-0 items-center gap-1.5 text-xs">
+        <Badge
+          className="h-4 shrink-0 px-1 text-[9px] font-medium uppercase tracking-wider"
+          variant={TYPE_BADGE[entry.entryType]}
+        >
+          {ENTRY_LABELS[entry.entryType]}
+        </Badge>
+        <span
+          className={cn(
+            "inline-flex h-4 shrink-0 items-center rounded-md border border-border bg-background px-1.5 text-[10px] font-medium",
+            entry.visibility === "report"
+              ? "text-foreground"
+              : "text-muted-foreground",
+          )}
+        >
+          {entry.visibility === "report" ? "Report" : "Private"}
+        </span>
+        {entry.durationMinutes != null && entry.durationMinutes > 0 && (
+          <span
+            aria-label={`Time spent ${formatDuration(entry.durationMinutes)}`}
+            className="inline-flex h-4 shrink-0 items-center gap-1 rounded-md border border-border bg-background px-1.5 font-mono text-[10px] text-foreground"
+          >
+            <Clock4 className="size-2.5 text-muted-foreground" />
+            {formatDuration(entry.durationMinutes)}
+          </span>
+        )}
+        {attachments.length > 0 && summary.hasText && (
+          <span className="inline-flex h-4 shrink-0 items-center rounded-md border border-border bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">
+            image
+          </span>
+        )}
+        <span
+          className={cn(
+            "min-w-0 truncate",
+            summary.hasText ? "text-foreground" : "text-muted-foreground",
+          )}
+          title={summary.text}
+        >
+          {summary.text}
+        </span>
+      </div>
+    </li>
+  );
 }
 
 function TimelineEntry({
@@ -546,6 +654,40 @@ function formatDate(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function formatCompactDateTime(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function compactSummary(content: string, attachmentCount: number) {
+  const text = stripMarkdown(content);
+  const imageOnly =
+    attachmentCount > 0 &&
+    (!text ||
+      /^attached\s+(?:an?\s+)?(?:\d+\s+)?images?\.?$/i.test(text.trim()));
+  if (imageOnly) return { text: "[image]", hasText: false };
+  if (!text) {
+    return {
+      text: attachmentCount > 0 ? "[image]" : "No text",
+      hasText: false,
+    };
+  }
+  return { text, hasText: true };
+}
+
+function stripMarkdown(value: string) {
+  return value
+    .replace(/!\[[^\]]*]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)]\([^)]*\)/g, "$1")
+    .replace(/[`*_~>#-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 interface DateGroup {
