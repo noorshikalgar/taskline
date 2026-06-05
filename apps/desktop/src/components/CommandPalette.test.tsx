@@ -133,4 +133,27 @@ describe("CommandPalette", () => {
     expect(screen.getByText("Bugs")).toBeInTheDocument();
     expect(screen.queryByText("Backlog")).not.toBeInTheDocument();
   });
+
+  it("supports regex matching from the command palette", () => {
+    render(
+      <CommandPalette
+        entries={entries}
+        folders={folders}
+        onOpenChange={() => {}}
+        onSelectEntry={() => {}}
+        onSelectFolder={() => {}}
+        onSelectTask={() => {}}
+        open
+        tasks={tasks}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /regular expression/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Search tasks/), {
+      target: { value: "Ship.*mode" },
+    });
+
+    expect(screen.getByText("Ship dark mode")).toBeInTheDocument();
+    expect(screen.queryByText("Investigate flaky test")).not.toBeInTheDocument();
+  });
 });

@@ -203,7 +203,7 @@ function TimelineEntry({
   return (
     <li
       className={cn(
-        "group relative grid grid-cols-[28px_56px_minmax(0,1fr)_auto] gap-3 rounded-md px-2 py-3 transition-colors hover:bg-accent/40",
+        "group relative grid grid-cols-[20px_48px_minmax(0,1fr)_auto] gap-2 rounded-md px-0 py-3 transition-colors hover:bg-accent/40",
       )}
       data-entry-id={entry.id}
     >

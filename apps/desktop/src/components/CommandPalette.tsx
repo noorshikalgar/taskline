@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface Result {
@@ -43,6 +44,7 @@ export function CommandPalette({
   onSelectEntry,
 }: Props) {
   const [query, setQuery] = useState("");
+  const [regex, setRegex] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -61,11 +63,13 @@ export function CommandPalette({
   }, [tasks]);
 
   const results = useMemo<Result[]>(() => {
-    const term = query.trim().toLowerCase();
+    const term = query.trim();
     if (!term) return [];
+    const matcher = createMatcher(term, regex);
+    if (!matcher) return [];
     const out: Result[] = [];
     for (const task of tasks) {
-      if (task.title.toLowerCase().includes(term)) {
+      if (matcher(`${task.title} ${task.status} ${task.nextStep ?? ""}`)) {
         out.push({
           id: `task:${task.id}`,
           kind: "task",
@@ -80,7 +84,7 @@ export function CommandPalette({
       }
     }
     for (const folder of folders) {
-      if (folder.name.toLowerCase().includes(term)) {
+      if (matcher(folder.name)) {
         out.push({
           id: `folder:${folder.id}`,
           kind: "folder",
@@ -95,7 +99,7 @@ export function CommandPalette({
       }
     }
     for (const entry of entries) {
-      if (entry.contentMarkdown.toLowerCase().includes(term)) {
+      if (matcher(entry.contentMarkdown)) {
         const task = taskById.get(entry.taskId);
         out.push({
           id: `entry:${entry.id}`,
@@ -113,6 +117,7 @@ export function CommandPalette({
     return out.slice(0, MAX_RESULTS);
   }, [
     query,
+    regex,
     tasks,
     folders,
     entries,
@@ -180,6 +185,24 @@ export function CommandPalette({
             ref={inputRef}
             value={query}
           />
+          <Button
+            aria-label="Use regular expression"
+            aria-pressed={regex}
+            className={cn(
+              "h-6 w-8 shrink-0 px-0 font-mono text-[11px]",
+              regex && "bg-secondary text-secondary-foreground",
+            )}
+            onClick={() => {
+              setRegex((current) => !current);
+              setSelectedIndex(0);
+              requestAnimationFrame(() => inputRef.current?.focus());
+            }}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            .*
+          </Button>
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             esc
           </span>
@@ -190,7 +213,9 @@ export function CommandPalette({
               <ListTodo className="size-4 opacity-60" />
               <span>
                 {query.trim()
-                  ? `No matches for “${query.trim()}”.`
+                  ? regex && !createMatcher(query.trim(), true)
+                    ? "Regex pattern is not valid yet."
+                    : `No matches for “${query.trim()}”.`
                   : "Type to search tasks, folders, or timeline updates."}
               </span>
             </div>
@@ -248,4 +273,17 @@ function truncate(value: string, length: number) {
   const clean = value.replace(/\s+/g, " ").trim();
   if (clean.length <= length) return clean;
   return `${clean.slice(0, length - 1)}…`;
+}
+
+function createMatcher(query: string, regex: boolean) {
+  if (!regex) {
+    const lower = query.toLowerCase();
+    return (value: string) => value.toLowerCase().includes(lower);
+  }
+  try {
+    const expression = new RegExp(query, "i");
+    return (value: string) => expression.test(value);
+  } catch {
+    return null;
+  }
 }
