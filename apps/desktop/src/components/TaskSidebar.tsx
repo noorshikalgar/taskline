@@ -330,11 +330,6 @@ export function TaskSidebar({
         </nav>
       </ScrollArea>
 
-      <div className="flex h-9 items-center justify-between border-t border-border px-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-        <span>Dogfood milestone</span>
-        <span>Local only</span>
-      </div>
-
       <FolderDialog
         dialog={folderDialog}
         onOpenChange={(open) => {

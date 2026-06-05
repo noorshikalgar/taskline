@@ -412,110 +412,122 @@ export default function App() {
     window.addEventListener("mouseup", stop);
   }
 
+  const statusCounts = useMemo(
+    () => ({
+      active: tasks.filter((task) => task.status === "active").length,
+      planned: tasks.filter((task) => task.status === "planned").length,
+      done: tasks.filter((task) => task.status === "done").length,
+    }),
+    [tasks],
+  );
+
   return (
-    <div className="flex h-full min-h-0 w-full bg-background text-foreground">
-      <AppRail
-        archiveActive={archiveView}
-        onArchiveToggle={() => {
-          setArchiveView((active) => !active);
-          setSidebarOpen(true);
-        }}
-        onSearchOpen={() => setPaletteOpen(true)}
-        onSettingsOpen={() => setSettingsOpen(true)}
-        onTaskToggle={() => setSidebarOpen((open) => !open)}
-        tasksActive={sidebarOpen}
-      />
+    <div className="flex h-full min-h-0 w-full flex-col bg-background text-foreground">
+      <div className="flex min-h-0 flex-1">
+        <AppRail
+          archiveActive={archiveView}
+          onArchiveToggle={() => {
+            setArchiveView((active) => !active);
+            setSidebarOpen(true);
+          }}
+          onSearchOpen={() => setPaletteOpen(true)}
+          onSettingsOpen={() => setSettingsOpen(true)}
+          onTaskToggle={() => setSidebarOpen((open) => !open)}
+          tasksActive={sidebarOpen}
+        />
 
-      <div
-        className={cn(
-          "relative h-full shrink-0 overflow-hidden border-r border-border transition-[width] duration-200 ease-out",
-          resizingSidebar && "transition-none",
-        )}
-        style={{ width: sidebarOpen ? sidebarWidth : 0 }}
-      >
-        <div className="h-full" style={{ width: sidebarWidth }}>
-          <TaskSidebar
-            folders={folders}
-            onCreate={createTask}
-            onCreateFolder={createFolder}
-            onDeleteTask={deleteTask}
-            onMoveTask={moveTask}
-            onRenameFolder={renameFolder}
-            onSelect={setSelectedId}
-            selectedId={selectedId}
-            tasks={sidebarTasks}
-          />
-        </div>
-        {sidebarOpen && (
-          <button
-            aria-label="Resize task sidebar"
-            className="absolute right-0 top-0 z-20 h-full w-1 cursor-col-resize bg-transparent transition-colors hover:bg-primary/40 focus-visible:bg-primary/50 focus-visible:outline-none"
-            onDoubleClick={() => {
-              setSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
-              localStorage.setItem(
-                SIDEBAR_WIDTH_KEY,
-                String(DEFAULT_SIDEBAR_WIDTH),
-              );
-            }}
-            onMouseDown={startSidebarResize}
-            type="button"
-          />
-        )}
-      </div>
-
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {error && (
-          <Alert
-            className="m-4 flex items-start gap-3 border-destructive/30 bg-destructive/5"
-            variant="destructive"
-          >
-            <Info />
-            <div className="flex-1">
-              <AlertTitle>Something went wrong</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </div>
-            <Button onClick={() => setError("")} size="sm" variant="ghost">
-              Dismiss
-            </Button>
-          </Alert>
-        )}
-        {selectedTask ? (
-          <>
-            <TaskHeader
-              entriesLoaded={entries.length}
-              key={selectedTask.id}
-              onPendingTitleEditConsumed={() => setPendingTitleEdit(false)}
-              onUpdate={updateTask}
-              pendingTitleEdit={pendingTitleEdit}
-              task={selectedTask}
+        <div
+          className={cn(
+            "relative h-full shrink-0 overflow-hidden border-r border-border transition-[width] duration-200 ease-out",
+            resizingSidebar && "transition-none",
+          )}
+          style={{ width: sidebarOpen ? sidebarWidth : 0 }}
+        >
+          <div className="h-full" style={{ width: sidebarWidth }}>
+            <TaskSidebar
+              folders={folders}
+              onCreate={createTask}
+              onCreateFolder={createFolder}
+              onDeleteTask={deleteTask}
+              onMoveTask={moveTask}
+              onRenameFolder={renameFolder}
+              onSelect={setSelectedId}
+              selectedId={selectedId}
+              tasks={sidebarTasks}
             />
-            <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1">
-              <ThreadColumn
-                entryTypeFilter={entryTypeFilter}
-                onEntryTypeFilterChange={setEntryTypeFilter}
-                onSearchChange={setThreadSearch}
-                search={threadSearch}
-              >
-                <Composer onSubmit={createEntry} taskId={selectedTask.id} />
-                <Timeline
-                  attachments={attachments}
-                  entries={visibleEntries}
-                  hasMore={hasMore}
-                  historyEntryId={historyEntryId}
-                  onEdit={updateEntry}
-                  onHistory={showHistory}
-                  onLoadMore={loadMore}
-                  onRestoreRevision={restoreRevision}
-                  onTrash={trashEntry}
-                  revisions={revisions}
-                />
-              </ThreadColumn>
-            </div>
-          </>
-        ) : (
-          <EmptyState onCreateTask={createTask} />
-        )}
-      </main>
+          </div>
+          {sidebarOpen && (
+            <button
+              aria-label="Resize task sidebar"
+              className="absolute right-0 top-0 z-20 h-full w-1 cursor-col-resize bg-transparent transition-colors hover:bg-primary/40 focus-visible:bg-primary/50 focus-visible:outline-none"
+              onDoubleClick={() => {
+                setSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
+                localStorage.setItem(
+                  SIDEBAR_WIDTH_KEY,
+                  String(DEFAULT_SIDEBAR_WIDTH),
+                );
+              }}
+              onMouseDown={startSidebarResize}
+              type="button"
+            />
+          )}
+        </div>
+
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {error && (
+            <Alert
+              className="m-4 flex items-start gap-3 border-destructive/30 bg-destructive/5"
+              variant="destructive"
+            >
+              <Info />
+              <div className="flex-1">
+                <AlertTitle>Something went wrong</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </div>
+              <Button onClick={() => setError("")} size="sm" variant="ghost">
+                Dismiss
+              </Button>
+            </Alert>
+          )}
+          {selectedTask ? (
+            <>
+              <TaskHeader
+                entriesLoaded={entries.length}
+                key={selectedTask.id}
+                onPendingTitleEditConsumed={() => setPendingTitleEdit(false)}
+                onUpdate={updateTask}
+                pendingTitleEdit={pendingTitleEdit}
+                task={selectedTask}
+              />
+              <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1">
+                <ThreadColumn
+                  entryTypeFilter={entryTypeFilter}
+                  onEntryTypeFilterChange={setEntryTypeFilter}
+                  onSearchChange={setThreadSearch}
+                  search={threadSearch}
+                >
+                  <Composer onSubmit={createEntry} taskId={selectedTask.id} />
+                  <Timeline
+                    attachments={attachments}
+                    entries={visibleEntries}
+                    hasMore={hasMore}
+                    historyEntryId={historyEntryId}
+                    onEdit={updateEntry}
+                    onHistory={showHistory}
+                    onLoadMore={loadMore}
+                    onRestoreRevision={restoreRevision}
+                    onTrash={trashEntry}
+                    revisions={revisions}
+                  />
+                </ThreadColumn>
+              </div>
+            </>
+          ) : (
+            <EmptyState onCreateTask={createTask} />
+          )}
+        </main>
+      </div>
+      <StatusBar counts={statusCounts} selectedTask={selectedTask} />
       <CommandPalette
         entries={entries}
         folders={folders}
@@ -634,6 +646,33 @@ function RailButton({
       </TooltipTrigger>
       <TooltipContent side="right">{tooltip}</TooltipContent>
     </Tooltip>
+  );
+}
+
+function StatusBar({
+  counts,
+  selectedTask,
+}: {
+  counts: { active: number; planned: number; done: number };
+  selectedTask: Task | null;
+}) {
+  return (
+    <footer className="flex h-6 shrink-0 items-center justify-between border-t border-border bg-card px-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="text-foreground/80">Local-first</span>
+        <span>v0.1.0</span>
+        {selectedTask && (
+          <span className="hidden min-w-0 truncate sm:inline">
+            {selectedTask.title}
+          </span>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
+        <span>Active {counts.active}</span>
+        <span>Todo {counts.planned}</span>
+        <span>Done {counts.done}</span>
+      </div>
+    </footer>
   );
 }
 

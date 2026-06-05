@@ -210,4 +210,15 @@ describe("TaskHeader", () => {
     expect(document.documentElement).toHaveClass("theme-tokyo-night-light");
     expect(document.documentElement).not.toHaveClass("dark");
   });
+
+  it("shows a minimal workspace status bar", async () => {
+    mockAppApi();
+    render(<App />);
+
+    expect(await screen.findByText("Local-first")).toBeInTheDocument();
+    expect(screen.getByText("v0.1.0")).toBeInTheDocument();
+    expect(screen.getByText("Active 1")).toBeInTheDocument();
+    expect(screen.getByText("Todo 0")).toBeInTheDocument();
+    expect(screen.getByText("Done 0")).toBeInTheDocument();
+  });
 });
