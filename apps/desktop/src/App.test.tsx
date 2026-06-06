@@ -95,7 +95,9 @@ describe("TaskHeader", () => {
     );
 
     expect(screen.queryByLabelText("Next")).not.toBeInTheDocument();
-    expect(screen.getByText("Worklog")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Log time/ }),
+    ).toBeInTheDocument();
   });
 
   it("supports inline title editing by clicking the title and pressing Enter", async () => {
@@ -144,7 +146,7 @@ describe("TaskHeader", () => {
     expect(screen.queryByLabelText("Task title")).not.toBeInTheDocument();
   });
 
-  it("shows task metadata as compact header chips", () => {
+  it("hides passive metadata chips and exposes them from the overflow menu", async () => {
     render(
       <TaskHeader
         entriesLoaded={6}
@@ -155,10 +157,14 @@ describe("TaskHeader", () => {
       />,
     );
 
-    expect(screen.getByText("Created")).toBeInTheDocument();
-    expect(screen.getByText("Updated")).toBeInTheDocument();
-    expect(screen.getByText("Updates")).toBeInTheDocument();
-    expect(screen.getByText("6")).toBeInTheDocument();
+    expect(screen.queryByText("Created")).not.toBeInTheDocument();
+    expect(screen.queryByText("Updated")).not.toBeInTheDocument();
+    expect(screen.queryByText("Updates")).not.toBeInTheDocument();
+    expect(screen.queryByText("ID")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("More task actions"));
+    expect(
+      await screen.findByRole("menuitem", { name: /Copy task ID/ }),
+    ).toBeInTheDocument();
   });
 
   it("keeps only functional task header actions", async () => {
@@ -181,7 +187,7 @@ describe("TaskHeader", () => {
     );
   });
 
-  it("shows a time chip and a 'Log time' button in the task header", async () => {
+  it("shows the worklog duration inside the 'Log time' button in the task header", async () => {
     render(
       <TaskHeader
         entriesLoaded={2}
@@ -192,8 +198,10 @@ describe("TaskHeader", () => {
       />,
     );
 
-    expect(screen.getByText("1d 3h 15m")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Log time" }));
+    const logTimeButton = screen.getByRole("button", { name: /Log time/ });
+    expect(logTimeButton).toBeInTheDocument();
+    expect(logTimeButton).toHaveTextContent("1d 3h 15m");
+    fireEvent.click(logTimeButton);
     expect(
       await screen.findByRole("dialog", { name: /Log time/i }),
     ).toBeInTheDocument();

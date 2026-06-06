@@ -838,6 +838,7 @@ export default function App() {
                 key={selectedTask.id}
                 compactTimeline={timelineCompact}
                 onCreateQuickLink={createQuickLink}
+                onDelete={deleteTask}
                 onDeleteQuickLink={deleteQuickLink}
                 onUpdateQuickLink={updateQuickLink}
                 onCompactTimelineChange={setTimelineCompact}
