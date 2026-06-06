@@ -26,7 +26,7 @@ import {
   type DownloadEvent,
   type Update,
 } from "@tauri-apps/plugin-updater";
-import { type MouseEvent, useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CommandPalette } from "@/components/CommandPalette";
 import { Composer } from "@/components/Composer";
@@ -1903,8 +1903,18 @@ function SummaryTab({
   onOrderChange: (order: ReadonlyArray<SummaryFieldKey>) => void;
   onReset: () => void;
 }) {
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    fromIndex: number;
+    startX: number;
+    startY: number;
+    active: boolean;
+  } | null>(null);
+  const [dragView, setDragView] = useState<{
+    fromIndex: number | null;
+    toIndex: number | null;
+    active: boolean;
+  } | null>(null);
 
   const preview = formatTaskSummary(
     SAMPLE_SUMMARY_TASK,
@@ -1918,47 +1928,80 @@ function SummaryTab({
   );
 
   function moveItem(from: number, to: number) {
-    if (from === to) return;
+    if (from === to || to < 0 || to >= order.length) return;
     const next = [...order];
     const [picked] = next.splice(from, 1);
     next.splice(to, 0, picked);
     onOrderChange(next);
   }
 
-  function handleDragStart(index: number) {
-    return (event: React.DragEvent<HTMLDivElement>) => {
-      setDraggedIndex(index);
-      setDropIndex(index);
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData(
-        "text/plain",
-        SUMMARY_TEMPLATE_FIELDS[index].key,
-      );
+  function handlePointerDown(index: number) {
+    return (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      const target = event.currentTarget;
+      target.setPointerCapture(event.pointerId);
+      dragRef.current = {
+        pointerId: event.pointerId,
+        fromIndex: index,
+        startX: event.clientX,
+        startY: event.clientY,
+        active: false,
+      };
     };
   }
 
-  function handleDragOver(index: number) {
-    return (event: React.DragEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
-      if (dropIndex !== index) setDropIndex(index);
+  function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.active && Math.hypot(dx, dy) < 4) return;
+    const element = document.elementFromPoint(
+      event.clientX,
+      event.clientY,
+    ) as HTMLElement | null;
+    const row = element?.closest("[data-field-index]") as HTMLElement | null;
+    const rawIndex = row
+      ? Number.parseInt(row.dataset.fieldIndex ?? "-1", 10)
+      : -1;
+    if (rawIndex !== drag.fromIndex || drag.active) {
+      drag.active = true;
+    }
+    const next = {
+      fromIndex: drag.fromIndex,
+      toIndex: rawIndex,
+      active: true,
     };
+    if (
+      dragView?.fromIndex !== next.fromIndex ||
+      dragView?.toIndex !== next.toIndex ||
+      dragView?.active !== next.active
+    ) {
+      setDragView(next);
+    }
   }
 
-  function handleDrop(index: number) {
-    return (event: React.DragEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      if (draggedIndex !== null) {
-        moveItem(draggedIndex, index);
+  function endDrag(event: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (drag.active) {
+      const view = dragView;
+      if (
+        view &&
+        view.toIndex !== null &&
+        view.toIndex >= 0 &&
+        view.fromIndex !== view.toIndex
+      ) {
+        const targetIndex =
+          view.toIndex > drag.fromIndex ? view.toIndex - 1 : view.toIndex;
+        moveItem(drag.fromIndex, targetIndex);
       }
-      setDraggedIndex(null);
-      setDropIndex(null);
-    };
-  }
-
-  function handleDragEnd() {
-    setDraggedIndex(null);
-    setDropIndex(null);
+    }
+    dragRef.current = null;
+    setDragView(null);
   }
 
   return (
@@ -1981,24 +2024,23 @@ function SummaryTab({
                 if (!field) return null;
                 const checked = template[key];
                 const disabled = key === "worklogEntries" && !template.worklog;
-                const isDragging = draggedIndex === index;
-                const isDropTarget =
-                  dropIndex === index &&
-                  draggedIndex !== null &&
-                  draggedIndex !== index;
+                const isDragging =
+                  dragView?.active && dragView.fromIndex === index;
+                const dropTarget =
+                  dragView?.active && dragView.toIndex === index;
                 return (
                   <div
                     className={cn(
-                      "cursor-grab rounded-md border border-transparent bg-background select-none active:cursor-grabbing",
-                      isDropTarget && "border-primary/60 bg-primary/5",
+                      "cursor-grab touch-none rounded-md border border-transparent bg-background select-none active:cursor-grabbing",
+                      dropTarget && "border-primary/60 bg-primary/5",
                       isDragging && "opacity-50",
                     )}
-                    draggable
+                    data-field-index={index}
                     key={key}
-                    onDragEnd={handleDragEnd}
-                    onDragOver={handleDragOver(index)}
-                    onDragStart={handleDragStart(index)}
-                    onDrop={handleDrop(index)}
+                    onPointerCancel={endDrag}
+                    onPointerDown={handlePointerDown(index)}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={endDrag}
                   >
                     <label
                       className={cn(
@@ -2022,7 +2064,6 @@ function SummaryTab({
                               [key]: event.target.checked,
                             })
                           }
-                          onDragStart={(event) => event.preventDefault()}
                           type="checkbox"
                         />
                         <Check
