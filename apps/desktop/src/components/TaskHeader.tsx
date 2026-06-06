@@ -457,7 +457,7 @@ export function TaskHeader({
                 className="h-8 gap-1.5 px-2.5 text-xs"
                 onClick={() => setLogTimeOpen(true)}
                 size="sm"
-                variant="outline"
+                variant="ghost"
               >
                 <Clock4 className="size-3.5" />
                 Log time
@@ -481,7 +481,7 @@ export function TaskHeader({
                 className="h-8 gap-1.5 px-2.5 text-xs"
                 onClick={() => setEstimateOpen(true)}
                 size="sm"
-                variant="outline"
+                variant="ghost"
               >
                 <Calculator className="size-3.5" />
                 Estimate
