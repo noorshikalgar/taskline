@@ -223,7 +223,7 @@ export function TaskSidebar({
             aria-label="Search tasks"
             className="h-7 pl-7 text-xs"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search threads"
+            placeholder="Search tasks"
             value={query}
           />
         </div>
@@ -237,11 +237,11 @@ export function TaskSidebar({
           {!!activeTasks.length && (
             <section
               aria-label="Active tasks"
-              className="flex min-w-0 flex-col overflow-hidden border-b border-border/70 bg-muted/20"
+              className="flex min-w-0 flex-col overflow-hidden border-b border-border/60"
             >
               <button
                 aria-expanded={openActiveTasks}
-                className="flex min-w-0 items-center gap-1 px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+                className="flex min-w-0 items-center gap-1 px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/30 hover:text-foreground"
                 onClick={() => setOpenActiveTasks((open) => !open)}
                 type="button"
               >
@@ -261,9 +261,9 @@ export function TaskSidebar({
                   {activeTasks.map((task) => (
                     <button
                       className={cn(
-                        "min-w-0 truncate rounded-sm border border-transparent px-2 py-1 text-left text-xs text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                        "min-w-0 truncate rounded-sm border border-transparent px-2 py-1 text-left text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground",
                         selectedId === task.id &&
-                          "border-border bg-background text-foreground shadow-sm",
+                          "border-border bg-accent/50 text-foreground",
                       )}
                       key={task.id}
                       onClick={() => onSelect(task.id)}
@@ -314,10 +314,10 @@ export function TaskSidebar({
             <div className="flex flex-col items-center gap-2 px-2 py-8 text-center text-xs text-muted-foreground">
               <ListTodo className="size-5 opacity-60" />
               {query.trim() ? (
-                <span>No threads match “{query.trim()}”.</span>
+                <span>No tasks match “{query.trim()}”.</span>
               ) : (
                 <>
-                  <span>No task threads yet.</span>
+                  <span>No tasks yet.</span>
                   <Button
                     onClick={() => void handleCreate()}
                     size="sm"
@@ -487,7 +487,7 @@ function FolderDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Name the folder that will group related task threads.
+            Name the folder that will group related tasks.
           </DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={submit}>

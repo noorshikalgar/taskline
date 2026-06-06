@@ -137,7 +137,7 @@ export default function App() {
   const [entryTypeFilter, setEntryTypeFilter] = useState<EntryType | "all">(
     "all",
   );
-  const [threadSearch, setThreadSearch] = useState("");
+  const [timelineSearch, setTimelineSearch] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("tasks");
   const [update, setUpdate] = useState<Update | null>(null);
@@ -252,7 +252,7 @@ export default function App() {
   }, [workspaceMode, worklogRange]);
 
   const visibleEntries = useMemo(() => {
-    const term = threadSearch.trim().toLowerCase();
+    const term = timelineSearch.trim().toLowerCase();
     return entries.filter((entry) => {
       if (entryTypeFilter !== "all" && entry.entryType !== entryTypeFilter) {
         return false;
@@ -260,7 +260,7 @@ export default function App() {
       if (!term) return true;
       return entry.contentMarkdown.toLowerCase().includes(term);
     });
-  }, [entries, entryTypeFilter, threadSearch]);
+  }, [entries, entryTypeFilter, timelineSearch]);
 
   async function loadTasks() {
     try {
@@ -764,8 +764,8 @@ export default function App() {
                 <ThreadColumn
                   entryTypeFilter={entryTypeFilter}
                   onEntryTypeFilterChange={setEntryTypeFilter}
-                  onSearchChange={setThreadSearch}
-                  search={threadSearch}
+                  onSearchChange={setTimelineSearch}
+                  search={timelineSearch}
                 >
                   <Composer onSubmit={createEntry} taskId={selectedTask.id} />
                   <Timeline
@@ -1980,10 +1980,10 @@ function ThreadColumn({
         <div className="relative min-w-[180px] flex-1 max-w-sm">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            aria-label="Search this thread"
+            aria-label="Search timeline"
             className="h-7 pl-7 text-xs"
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search this thread…"
+            placeholder="Search timeline…"
             value={search}
           />
         </div>
