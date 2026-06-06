@@ -1928,13 +1928,27 @@ function SummaryTab({
     template,
     order,
   );
-
   // Markdown collapses single newlines into spaces, so for the preview
-  // only we add a blank line after every non-list line. Consecutive
-  // list items are left alone so the worklog / quick-links lists stay
-  // grouped as a single <ul>.
-  const previewBlocks = preview ? preview.replace(/^([^-].*)$/gm, "$1\n") : "";
-
+  // we walk line-by-line and insert a blank line on both sides of any
+  // non-list line. Consecutive list items stay glued together so the
+  // worklog / quick-links lists render as a single <ul>, and a
+  // non-list line that follows a list gets a blank line before it
+  // (otherwise Markdown treats it as a lazy continuation of the last
+  // list item and renders it inline).
+  const previewBlocks = preview
+    ? preview
+        .split("\n")
+        .reduce<string[]>((acc, line) => {
+          const isList = line.startsWith("- ");
+          const prev = acc.length ? acc[acc.length - 1] : "";
+          const prevIsList = prev.startsWith("- ");
+          if (!isList && prevIsList) acc.push("");
+          acc.push(line);
+          if (!isList) acc.push("");
+          return acc;
+        }, [])
+        .join("\n")
+    : "";
   function moveItem(from: number, to: number) {
     if (from === to || to < 0 || to >= order.length) return;
     const next = [...order];
