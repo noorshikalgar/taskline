@@ -22,6 +22,7 @@ describe("loadSummaryTemplate", () => {
 
   it("returns the stored value when present", () => {
     const stored: SummaryTemplate = {
+      title: true,
       status: false,
       estimate: true,
       worklog: false,

@@ -86,7 +86,6 @@ describe("TaskHeader", () => {
   it("keeps the next step field hidden from the task header", () => {
     render(
       <TaskHeader
-        entriesLoaded={0}
         onLogTime={vi.fn()}
         onUpdate={vi.fn()}
         task={task}
@@ -104,7 +103,6 @@ describe("TaskHeader", () => {
     const update = vi.fn().mockResolvedValue(undefined);
     render(
       <TaskHeader
-        entriesLoaded={0}
         onLogTime={vi.fn()}
         onUpdate={update}
         task={task}
@@ -129,7 +127,6 @@ describe("TaskHeader", () => {
     const update = vi.fn().mockResolvedValue(undefined);
     render(
       <TaskHeader
-        entriesLoaded={0}
         onLogTime={vi.fn()}
         onUpdate={update}
         task={task}
@@ -149,7 +146,6 @@ describe("TaskHeader", () => {
   it("hides passive metadata chips and exposes them from the overflow menu", async () => {
     render(
       <TaskHeader
-        entriesLoaded={6}
         onLogTime={vi.fn()}
         onUpdate={vi.fn()}
         task={task}
@@ -171,7 +167,6 @@ describe("TaskHeader", () => {
     const update = vi.fn().mockResolvedValue(undefined);
     render(
       <TaskHeader
-        entriesLoaded={0}
         onLogTime={vi.fn()}
         onUpdate={update}
         task={task}
@@ -190,7 +185,6 @@ describe("TaskHeader", () => {
   it("shows the worklog duration inside the 'Log time' button in the task header", async () => {
     render(
       <TaskHeader
-        entriesLoaded={2}
         onLogTime={vi.fn()}
         onUpdate={vi.fn()}
         task={task}
@@ -212,7 +206,6 @@ describe("TaskHeader", () => {
     render(
       <TaskHeader
         compactTimeline={false}
-        entriesLoaded={2}
         onCompactTimelineChange={onCompactTimelineChange}
         onLogTime={vi.fn()}
         onUpdate={vi.fn()}
@@ -236,7 +229,6 @@ describe("TaskHeader", () => {
 
     render(
       <TaskHeader
-        entriesLoaded={5}
         onCreateQuickLink={vi.fn()}
         onDeleteQuickLink={vi.fn()}
         onLogTime={vi.fn()}
@@ -250,13 +242,7 @@ describe("TaskHeader", () => {
     fireEvent.click(screen.getByLabelText("Copy task summary"));
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(
-        [
-          "Keep context",
-          "Status: Active",
-          "Estimate: 1d",
-          "Logged: 2h",
-          "Updates: 5",
-        ].join("\n"),
+        ["**Status:** Active", "**Estimate:** 1d", "**Logged:** 2h"].join("\n"),
       ),
     );
 
@@ -269,7 +255,6 @@ describe("TaskHeader", () => {
     const updateQuickLink = vi.fn().mockResolvedValue(undefined);
     render(
       <TaskHeader
-        entriesLoaded={5}
         onCreateQuickLink={vi.fn()}
         onDeleteQuickLink={vi.fn()}
         onLogTime={vi.fn()}
@@ -300,7 +285,6 @@ describe("TaskHeader", () => {
   it("hides the work-session quick action for done tasks", () => {
     render(
       <TaskHeader
-        entriesLoaded={0}
         onLogTime={vi.fn()}
         onUpdate={vi.fn()}
         task={{ ...task, status: "done" }}
@@ -320,7 +304,6 @@ describe("TaskHeader", () => {
     const update = vi.fn().mockResolvedValue(undefined);
     render(
       <TaskHeader
-        entriesLoaded={0}
         onLogTime={vi.fn()}
         onUpdate={update}
         task={task}
@@ -342,7 +325,6 @@ describe("TaskHeader", () => {
     const onStatusChange = vi.fn().mockResolvedValue(undefined);
     render(
       <TaskHeader
-        entriesLoaded={0}
         onLogTime={vi.fn()}
         onStatusChange={onStatusChange}
         onUpdate={vi.fn()}
@@ -480,6 +462,7 @@ describe("TaskHeader", () => {
       localStorage.getItem("devthread:summary-template") ?? "{}",
     );
     expect(stored).toEqual({
+      title: false,
       status: true,
       estimate: true,
       worklog: true,

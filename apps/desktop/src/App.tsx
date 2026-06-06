@@ -638,7 +638,6 @@ export default function App() {
           context: {
             entries,
             quickLinks,
-            entriesLoaded: entries.length,
             totalMinutes: entries.reduce(
               (total, entry) => total + (entry.durationMinutes ?? 0),
               0,
@@ -898,7 +897,6 @@ export default function App() {
           ) : selectedTask ? (
             <>
               <TaskHeader
-                entriesLoaded={entries.length}
                 key={selectedTask.id}
                 compactTimeline={timelineCompact}
                 onCreateQuickLink={createQuickLink}
@@ -1889,7 +1887,6 @@ function SummaryTab({
     SAMPLE_SUMMARY_TASK,
     {
       totalMinutes: 4 * 60 + 30,
-      entriesLoaded: SAMPLE_SUMMARY_ENTRIES.length,
       entries: SAMPLE_SUMMARY_ENTRIES,
       quickLinks: SAMPLE_SUMMARY_LINKS,
     },

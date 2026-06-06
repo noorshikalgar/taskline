@@ -74,7 +74,6 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   task: Task;
-  entriesLoaded: number;
   totalMinutes: number;
   quickLinks?: TaskQuickLink[];
   compactTimeline?: boolean;
@@ -95,7 +94,6 @@ const TITLE_MAX_LENGTH = 140;
 
 export function TaskHeader({
   task,
-  entriesLoaded,
   totalMinutes,
   quickLinks = [],
   compactTimeline = false,
@@ -305,9 +303,7 @@ export function TaskHeader({
             <TooltipTrigger asChild>
               <Button
                 aria-label="Copy task summary"
-                onClick={() =>
-                  void copyHeaderTaskSummary(task, entriesLoaded, totalMinutes)
-                }
+                onClick={() => void copyHeaderTaskSummary(task, totalMinutes)}
                 size="icon-sm"
                 variant="ghost"
               >
@@ -1114,11 +1110,7 @@ function quickLinkColor(provider: string) {
   return "";
 }
 
-async function copyHeaderTaskSummary(
-  task: Task,
-  entriesLoaded: number,
-  totalMinutes: number,
-) {
-  await copyTaskSummaryToClipboard(task, { entriesLoaded, totalMinutes });
+async function copyHeaderTaskSummary(task: Task, totalMinutes: number) {
+  await copyTaskSummaryToClipboard(task, { totalMinutes });
   toast.success("Task summary copied");
 }

@@ -10,7 +10,6 @@ const TITLE_COLUMN = "Title";
 const STATUS_COLUMN = "Status";
 const ESTIMATE_COLUMN = "Estimate";
 const WORKLOG_COLUMN = "Worklog";
-const UPDATES_COLUMN = "Updates";
 const QUICK_LINKS_COLUMN = "Quick Links";
 const CREATED_COLUMN = "Created";
 const UPDATED_COLUMN = "Updated";
@@ -34,9 +33,10 @@ interface ColumnDef {
 }
 
 function buildColumns(template: SummaryTemplate): ColumnDef[] {
-  const columns: ColumnDef[] = [
-    { key: TITLE_COLUMN, resolve: (task) => task.title },
-  ];
+  const columns: ColumnDef[] = [];
+  if (template.title) {
+    columns.push({ key: TITLE_COLUMN, resolve: (task) => task.title });
+  }
   if (template.status) {
     columns.push({
       key: STATUS_COLUMN,
@@ -55,11 +55,6 @@ function buildColumns(template: SummaryTemplate): ColumnDef[] {
       key: WORKLOG_COLUMN,
       resolve: (_task, context) => formatWorklogCell(context, template),
     });
-    columns.push({
-      key: UPDATES_COLUMN,
-      resolve: (_task, context) =>
-        context.entriesLoaded != null ? String(context.entriesLoaded) : "",
-    });
   }
   if (template.quickLinks) {
     columns.push({
@@ -70,13 +65,13 @@ function buildColumns(template: SummaryTemplate): ColumnDef[] {
   if (template.createdDate) {
     columns.push({
       key: CREATED_COLUMN,
-      resolve: (task) => task.createdAt,
+      resolve: (task) => formatDate(task.createdAt),
     });
   }
   if (template.updatedDate) {
     columns.push({
       key: UPDATED_COLUMN,
-      resolve: (task) => task.updatedAt,
+      resolve: (task) => formatDate(task.updatedAt),
     });
   }
   return columns;
@@ -107,7 +102,15 @@ function formatWorklogCell(
 
 function formatQuickLinksCell(links: TaskQuickLink[] | undefined): string {
   if (!links?.length) return "";
-  return links.map((link) => `${link.title}: ${link.url}`).join(" | ");
+  return links.map((link) => `[${link.title}](${link.url})`).join(" | ");
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function statusLabel(status: Task["status"]): string {

@@ -1,4 +1,5 @@
 export interface SummaryTemplate {
+  title: boolean;
   status: boolean;
   estimate: boolean;
   worklog: boolean;
@@ -9,6 +10,7 @@ export interface SummaryTemplate {
 }
 
 export const DEFAULT_SUMMARY_TEMPLATE: SummaryTemplate = {
+  title: false,
   status: true,
   estimate: true,
   worklog: true,
@@ -27,6 +29,10 @@ function isObject(value: unknown): value is Record<string, unknown> {
 function normalizeTemplate(value: unknown): SummaryTemplate {
   if (!isObject(value)) return { ...DEFAULT_SUMMARY_TEMPLATE };
   return {
+    title:
+      typeof value.title === "boolean"
+        ? value.title
+        : DEFAULT_SUMMARY_TEMPLATE.title,
     status:
       typeof value.status === "boolean"
         ? value.status
@@ -81,6 +87,11 @@ export const SUMMARY_TEMPLATE_FIELDS: ReadonlyArray<{
   label: string;
   description: string;
 }> = [
+  {
+    key: "title",
+    label: "Title",
+    description: "Task title as a labeled line.",
+  },
   { key: "status", label: "Status", description: "Current status label." },
   {
     key: "estimate",
@@ -90,7 +101,7 @@ export const SUMMARY_TEMPLATE_FIELDS: ReadonlyArray<{
   {
     key: "worklog",
     label: "Worklog total",
-    description: "Total time logged and entry count.",
+    description: "Total time logged.",
   },
   {
     key: "worklogEntries",
@@ -105,11 +116,11 @@ export const SUMMARY_TEMPLATE_FIELDS: ReadonlyArray<{
   {
     key: "createdDate",
     label: "Created date",
-    description: "Task creation timestamp.",
+    description: "Task creation date.",
   },
   {
     key: "updatedDate",
     label: "Updated date",
-    description: "Last update timestamp.",
+    description: "Last update date.",
   },
 ];

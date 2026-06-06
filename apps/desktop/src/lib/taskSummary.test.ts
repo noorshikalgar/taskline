@@ -3,10 +3,11 @@ import {
   DEFAULT_SUMMARY_TEMPLATE,
   type SummaryTemplate,
 } from "./summaryTemplate";
-import { formatTaskSummary } from "./taskSummary";
+import { formatTaskSection, formatTaskSummary } from "./taskSummary";
 import type { Task, TaskQuickLink } from "./types";
 
 const ALL_OFF: SummaryTemplate = {
+  title: false,
   status: false,
   estimate: false,
   worklog: false,
@@ -40,55 +41,66 @@ const link: TaskQuickLink = {
 };
 
 describe("formatTaskSummary", () => {
-  it("includes only the title when every field is off", () => {
-    expect(formatTaskSummary(baseTask, {}, ALL_OFF)).toBe(
-      "Ship the summary template",
-    );
+  it("returns an empty string when every field is off", () => {
+    expect(formatTaskSummary(baseTask, {}, ALL_OFF)).toBe("");
   });
 
-  it("uses the default template when none is passed", () => {
-    const out = formatTaskSummary(baseTask, {
-      totalMinutes: 4 * 60 + 30,
-      entriesLoaded: 6,
-    });
+  it("uses the default template (no Title) and omits the Updates line", () => {
+    const out = formatTaskSummary(baseTask, { totalMinutes: 4 * 60 + 30 });
     expect(out).toBe(
-      [
-        "Ship the summary template",
-        "Status: Active",
-        "Estimate: 1d",
-        "Logged: 4h 30m",
-        "Updates: 6",
-      ].join("\n"),
+      ["**Status:** Active", "**Estimate:** 1d", "**Logged:** 4h 30m"].join(
+        "\n",
+      ),
     );
+    expect(out).not.toContain("Updates:");
   });
 
-  it("omits estimate when the field is off", () => {
-    const template = { ...DEFAULT_SUMMARY_TEMPLATE, estimate: false };
-    const out = formatTaskSummary(baseTask, { totalMinutes: 30 }, template);
-    expect(out).not.toContain("Estimate:");
-    expect(out).toContain("Status: Active");
-    expect(out).toContain("Logged: 30m");
+  it("renders the Title line only when its toggle is on", () => {
+    const on = formatTaskSummary(baseTask, {}, { ...ALL_OFF, title: true });
+    expect(on).toBe("**Title:** Ship the summary template");
+
+    const off = formatTaskSummary(baseTask, {}, ALL_OFF);
+    expect(off).toBe("");
+  });
+
+  it("uses bold Markdown for every label", () => {
+    const out = formatTaskSummary(
+      baseTask,
+      { totalMinutes: 90, quickLinks: [link] },
+      {
+        ...DEFAULT_SUMMARY_TEMPLATE,
+        title: true,
+        quickLinks: true,
+        createdDate: true,
+        updatedDate: true,
+      },
+    );
+    expect(out).toContain("**Title:**");
+    expect(out).toContain("**Status:**");
+    expect(out).toContain("**Estimate:**");
+    expect(out).toContain("**Logged:**");
+    expect(out).toContain("**Links:**");
+    expect(out).toContain("**Created:**");
+    expect(out).toContain("**Updated:**");
   });
 
   it("shows 'None' when the task has no estimate", () => {
     const out = formatTaskSummary({ ...baseTask, estimatedMinutes: null });
-    expect(out).toContain("Estimate: None");
+    expect(out).toContain("**Estimate:** None");
   });
 
   it("falls back to 0m when totalMinutes is 0", () => {
     const out = formatTaskSummary(baseTask, { totalMinutes: 0 });
-    expect(out).toContain("Logged: 0m");
+    expect(out).toContain("**Logged:** 0m");
   });
 
-  it("omits Logged and Updates when worklog is off", () => {
-    const template = { ...DEFAULT_SUMMARY_TEMPLATE, worklog: false };
+  it("omits Logged when worklog is off", () => {
     const out = formatTaskSummary(
       baseTask,
-      { totalMinutes: 60, entriesLoaded: 3 },
-      template,
+      { totalMinutes: 60 },
+      { ...DEFAULT_SUMMARY_TEMPLATE, worklog: false },
     );
-    expect(out).not.toContain("Logged:");
-    expect(out).not.toContain("Updates:");
+    expect(out).not.toContain("Logged");
   });
 
   it("renders per-entry bullets only when worklogEntries is on", () => {
@@ -98,7 +110,7 @@ describe("formatTaskSummary", () => {
     ];
     const withEntries = formatTaskSummary(
       baseTask,
-      { totalMinutes: 120, entriesLoaded: 2, entries },
+      { totalMinutes: 120, entries },
       { ...DEFAULT_SUMMARY_TEMPLATE, worklogEntries: true },
     );
     expect(withEntries).toContain("- 1h 30m Implemented X");
@@ -106,7 +118,7 @@ describe("formatTaskSummary", () => {
 
     const withoutEntries = formatTaskSummary(
       baseTask,
-      { totalMinutes: 120, entriesLoaded: 2, entries },
+      { totalMinutes: 120, entries },
       DEFAULT_SUMMARY_TEMPLATE,
     );
     expect(withoutEntries).not.toContain("-");
@@ -138,16 +150,17 @@ describe("formatTaskSummary", () => {
     expect(out).toContain("- 10m Real entry");
   });
 
-  it("includes quick links when enabled", () => {
+  it("renders quick links as Markdown links under a Links section", () => {
     const out = formatTaskSummary(
       baseTask,
       { quickLinks: [link] },
       { ...DEFAULT_SUMMARY_TEMPLATE, quickLinks: true },
     );
-    expect(out).toContain("- Header mockup: https://figma.com/file/abc");
+    expect(out).toContain("**Links:**");
+    expect(out).toContain("- [Header mockup](https://figma.com/file/abc)");
   });
 
-  it("includes created and updated dates when enabled", () => {
+  it("formats created and updated dates in a human-readable form", () => {
     const out = formatTaskSummary(
       baseTask,
       {},
@@ -157,7 +170,16 @@ describe("formatTaskSummary", () => {
         updatedDate: true,
       },
     );
-    expect(out).toContain("Created: 2025-01-01T09:00:00Z");
-    expect(out).toContain("Updated: 2025-01-02T12:30:00Z");
+    expect(out).toContain("**Created:** ");
+    expect(out).toContain("**Updated:** ");
+    expect(out).not.toContain("2025-01-01T09:00:00Z");
+  });
+});
+
+describe("formatTaskSection", () => {
+  it("prepends a Markdown H2 with the task title, even when Title is off", () => {
+    const out = formatTaskSection(baseTask, { totalMinutes: 90 });
+    expect(out.startsWith("## Ship the summary template")).toBe(true);
+    expect(out).toContain("**Logged:** 1h 30m");
   });
 });

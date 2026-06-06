@@ -7,6 +7,7 @@ import {
 import type { Folder, Task, TaskQuickLink } from "./types";
 
 const ALL_OFF: SummaryTemplate = {
+  title: false,
   status: false,
   estimate: false,
   worklog: false,
@@ -50,17 +51,19 @@ describe("formatTaskCsv", () => {
   it("emits a header row and one data row using the default template", () => {
     const out = formatTaskCsv(
       baseTask,
-      { totalMinutes: 270, entriesLoaded: 3 },
+      { totalMinutes: 270 },
       DEFAULT_SUMMARY_TEMPLATE,
     );
     const [header, row] = out.split("\n");
-    expect(header).toBe("Title,Status,Estimate,Worklog,Updates");
-    expect(row).toBe("Ship the summary template,Active,1d,4h 30m,3");
+    expect(header).toBe("Status,Estimate,Worklog");
+    expect(row).toBe("Active,1d,4h 30m");
+    expect(header).not.toContain("Updates");
+    expect(header).not.toContain("Title");
   });
 
-  it("renders the title only when every field is off", () => {
+  it("renders an empty body when every field is off", () => {
     const out = formatTaskCsv(baseTask, {}, ALL_OFF);
-    expect(out).toBe("Title\nShip the summary template");
+    expect(out).toBe("\n");
   });
 
   it("expands the Worklog cell with entries when worklogEntries is on", () => {
@@ -68,7 +71,6 @@ describe("formatTaskCsv", () => {
       baseTask,
       {
         totalMinutes: 90,
-        entriesLoaded: 2,
         entries: [
           { contentMarkdown: "Did the thing", durationMinutes: 60 },
           { contentMarkdown: "Reviewed", durationMinutes: 30 },
@@ -76,10 +78,9 @@ describe("formatTaskCsv", () => {
       },
       { ...DEFAULT_SUMMARY_TEMPLATE, worklogEntries: true },
     );
-    const [_header, row] = out.split("\n");
-    expect(row).toBe(
-      "Ship the summary template,Active,1d,1h 30m | 1h · Did the thing | 30m · Reviewed,2",
-    );
+    const [header, row] = out.split("\n");
+    expect(header).toBe("Status,Estimate,Worklog");
+    expect(row).toBe("Active,1d,1h 30m | 1h · Did the thing | 30m · Reviewed");
   });
 
   it("renders the Worklog cell as total only when entries are provided but worklogEntries is off", () => {
@@ -87,16 +88,26 @@ describe("formatTaskCsv", () => {
       baseTask,
       {
         totalMinutes: 90,
-        entriesLoaded: 2,
         entries: [{ contentMarkdown: "Did the thing", durationMinutes: 60 }],
       },
       DEFAULT_SUMMARY_TEMPLATE,
     );
     const [_header, row] = out.split("\n");
-    expect(row.endsWith(",1h 30m,2")).toBe(true);
+    expect(row.endsWith(",1h 30m")).toBe(true);
   });
 
-  it("includes quick links column when enabled", () => {
+  it("includes the Title column when its toggle is on", () => {
+    const out = formatTaskCsv(
+      baseTask,
+      {},
+      { ...DEFAULT_SUMMARY_TEMPLATE, title: true },
+    );
+    const [header, row] = out.split("\n");
+    expect(header.startsWith("Title,")).toBe(true);
+    expect(row.startsWith("Ship the summary template,")).toBe(true);
+  });
+
+  it("renders quick links as Markdown links in the cell", () => {
     const out = formatTaskCsv(
       baseTask,
       { quickLinks: [figmaLink] },
@@ -104,31 +115,30 @@ describe("formatTaskCsv", () => {
     );
     const [header, row] = out.split("\n");
     expect(header).toContain("Quick Links");
-    expect(row).toContain('"Header, mockup: https://figma.com/file/abc"');
+    expect(row).toContain('"[Header, mockup](https://figma.com/file/abc)"');
   });
 
-  it("includes created and updated columns when enabled", () => {
+  it("formats created and updated columns in a human-readable form", () => {
     const out = formatTaskCsv(
       baseTask,
       {},
       { ...DEFAULT_SUMMARY_TEMPLATE, createdDate: true, updatedDate: true },
     );
     const [header, row] = out.split("\n");
-    expect(header).toBe(
-      "Title,Status,Estimate,Worklog,Updates,Created,Updated",
-    );
-    expect(row).toBe(
-      "Ship the summary template,Active,1d,,,2025-01-01T09:00:00Z,2025-01-02T12:30:00Z",
-    );
+    expect(header).toBe("Status,Estimate,Worklog,Created,Updated");
+    expect(row).not.toContain("2025-01-01T09:00:00Z");
+    expect(row.split(",").length).toBe(5);
   });
 
   it("quotes and escapes cells containing commas or quotes", () => {
     const out = formatTaskCsv(
       { ...baseTask, title: 'A "weird", title' },
       {},
-      ALL_OFF,
+      { ...ALL_OFF, title: true },
     );
-    expect(out).toBe('Title\n"A ""weird"", title"');
+    const [header, row] = out.split("\n");
+    expect(header).toBe("Title");
+    expect(row).toBe('"A ""weird"", title"');
   });
 });
 
@@ -137,28 +147,23 @@ describe("formatFolderCsv", () => {
     const out = formatFolderCsv(
       folder,
       [
-        {
-          task: baseTask,
-          context: { totalMinutes: 90, entriesLoaded: 1 },
-        },
+        { task: baseTask, context: { totalMinutes: 90 } },
         {
           task: { ...baseTask, id: "task-2", title: "Wire the menu" },
-          context: { totalMinutes: 30, entriesLoaded: 1 },
+          context: { totalMinutes: 30 },
         },
       ],
       DEFAULT_SUMMARY_TEMPLATE,
     );
     const lines = out.split("\n");
     expect(lines).toHaveLength(3);
-    expect(lines[0]).toBe("Title,Status,Estimate,Worklog,Updates");
-    expect(lines[1]).toBe("Ship the summary template,Active,1d,1h 30m,1");
-    expect(lines[2]).toBe("Wire the menu,Active,1d,30m,1");
+    expect(lines[0]).toBe("Status,Estimate,Worklog");
+    expect(lines[1]).toBe("Active,1d,1h 30m");
+    expect(lines[2]).toBe("Active,1d,30m");
   });
 
   it("emits a placeholder row when the folder is empty", () => {
     const out = formatFolderCsv(folder, [], DEFAULT_SUMMARY_TEMPLATE);
-    expect(out).toBe(
-      "Title,Status,Estimate,Worklog,Updates\n(no tasks in Q1 roadmap)",
-    );
+    expect(out).toBe("Status,Estimate,Worklog\n(no tasks in Q1 roadmap)");
   });
 });
