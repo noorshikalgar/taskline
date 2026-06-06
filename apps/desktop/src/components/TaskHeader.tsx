@@ -10,6 +10,8 @@ import {
   Github,
   KanbanSquare,
   Link,
+  ListCollapse,
+  ListTree,
   MoreHorizontal,
   Pause,
   Play,
@@ -59,8 +61,10 @@ interface Props {
   entriesLoaded: number;
   totalMinutes: number;
   quickLinks?: TaskQuickLink[];
+  compactTimeline?: boolean;
   pendingTitleEdit?: boolean;
   onLogTime: (input: LogTimeInput) => Promise<void>;
+  onCompactTimelineChange?: (compact: boolean) => void;
   onCreateQuickLink?: (url: string) => Promise<void>;
   onDeleteQuickLink?: (id: string) => Promise<void>;
   onEstimateChange?: (minutes: number | null) => Promise<void>;
@@ -76,8 +80,10 @@ export function TaskHeader({
   entriesLoaded,
   totalMinutes,
   quickLinks = [],
+  compactTimeline = false,
   pendingTitleEdit,
   onLogTime,
+  onCompactTimelineChange,
   onCreateQuickLink,
   onDeleteQuickLink,
   onEstimateChange,
@@ -195,6 +201,35 @@ export function TaskHeader({
         </div>
 
         <div className="flex items-center gap-0.5">
+          {onCompactTimelineChange && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label={
+                    compactTimeline
+                      ? "Show detailed timeline"
+                      : "Show compact timeline"
+                  }
+                  className="h-7 gap-1.5 px-2 text-xs"
+                  onClick={() => onCompactTimelineChange(!compactTimeline)}
+                  size="sm"
+                  variant="outline"
+                >
+                  {compactTimeline ? (
+                    <ListTree className="size-3.5" />
+                  ) : (
+                    <ListCollapse className="size-3.5" />
+                  )}
+                  {compactTimeline ? "Detailed" : "Compact"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {compactTimeline
+                  ? "Show detailed timeline"
+                  : "Show compact timeline"}
+              </TooltipContent>
+            </Tooltip>
+          )}
           {showWorkSessionAction && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -328,36 +363,64 @@ export function TaskHeader({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2.5">
-        <TaskFact
-          actionLabel="Log time"
-          icon={Clock4}
-          label="Worklog"
-          onAction={() => setLogTimeOpen(true)}
-          tooltip="Record time spent on this task"
-          value={totalMinutes > 0 ? formatDuration(totalMinutes) : "0m"}
-        />
-        <TaskFact
-          actionLabel="Estimate"
-          icon={Calculator}
-          label="Estimate"
-          onAction={() => setEstimateOpen(true)}
-          tooltip="Set expected time for this task"
-          value={
-            task.estimatedMinutes
-              ? formatDuration(task.estimatedMinutes)
-              : "No estimate"
-          }
-        />
-        <QuickLinks
-          links={quickLinks}
-          onAdd={
-            onCreateQuickLink && quickLinks.length < 3
-              ? () => setQuickLinkOpen(true)
-              : undefined
-          }
-          onDelete={onDeleteQuickLink}
-        />
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <TaskMetric
+            icon={Clock4}
+            label="Worklog"
+            value={totalMinutes > 0 ? formatDuration(totalMinutes) : "0m"}
+          />
+          <TaskMetric
+            icon={Calculator}
+            label="Estimate"
+            value={
+              task.estimatedMinutes
+                ? formatDuration(task.estimatedMinutes)
+                : "No estimate"
+            }
+          />
+          <QuickLinks
+            links={quickLinks}
+            onAdd={
+              onCreateQuickLink && quickLinks.length < 3
+                ? () => setQuickLinkOpen(true)
+                : undefined
+            }
+            onDelete={onDeleteQuickLink}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label="Log time"
+                className="h-8 gap-1.5 px-2.5 text-xs"
+                onClick={() => setLogTimeOpen(true)}
+                size="sm"
+                variant="outline"
+              >
+                <Clock4 className="size-3.5" />
+                Log time
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Record time spent on this task</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label="Set estimate"
+                className="h-8 gap-1.5 px-2.5 text-xs"
+                onClick={() => setEstimateOpen(true)}
+                size="sm"
+                variant="outline"
+              >
+                <Calculator className="size-3.5" />
+                Estimate
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Set expected time for this task</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
       <LogTimeDialog
         onOpenChange={setLogTimeOpen}
@@ -395,46 +458,23 @@ export function TaskHeader({
   }
 }
 
-function TaskFact({
-  actionLabel,
+function TaskMetric({
   icon: Icon,
   label,
-  tooltip,
   value,
-  onAction,
 }: {
-  actionLabel: string;
   icon: LucideIcon;
   label: string;
-  tooltip: string;
   value: string;
-  onAction: () => void;
 }) {
   return (
-    <div className="inline-flex h-8 items-center overflow-hidden rounded-md border border-border bg-muted/20">
-      <span className="inline-flex h-full items-center gap-1.5 border-r border-border/70 px-2.5">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {label}
-        </span>
-        <Icon className="size-3 text-muted-foreground" />
-        <span className="font-mono text-[11px] text-foreground">{value}</span>
+    <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-muted/20 px-2.5">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
       </span>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            aria-label={actionLabel}
-            className="h-8 gap-1 rounded-none border-0 px-2.5 text-xs"
-            onClick={onAction}
-            size="sm"
-            variant="ghost"
-          >
-            <Icon className="size-3" />
-            {actionLabel}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{tooltip}</TooltipContent>
-      </Tooltip>
-    </div>
+      <Icon className="size-3 text-muted-foreground" />
+      <span className="font-mono text-[11px] text-foreground">{value}</span>
+    </span>
   );
 }
 

@@ -153,6 +153,7 @@ export default function App() {
   );
   const [timelineSearch, setTimelineSearch] = useState("");
   const [timelineRegex, setTimelineRegex] = useState(false);
+  const [timelineCompact, setTimelineCompact] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("tasks");
   const [update, setUpdate] = useState<Update | null>(null);
@@ -817,8 +818,10 @@ export default function App() {
               <TaskHeader
                 entriesLoaded={entries.length}
                 key={selectedTask.id}
+                compactTimeline={timelineCompact}
                 onCreateQuickLink={createQuickLink}
                 onDeleteQuickLink={deleteQuickLink}
+                onCompactTimelineChange={setTimelineCompact}
                 onLogTime={logTime}
                 onEstimateChange={(minutes) =>
                   updateTaskEstimate(selectedTask, minutes)
@@ -845,6 +848,7 @@ export default function App() {
                   <Composer onSubmit={createEntry} taskId={selectedTask.id} />
                   <Timeline
                     attachments={attachments}
+                    compact={timelineCompact}
                     entries={visibleEntries}
                     hasMore={hasMore}
                     historyEntryId={historyEntryId}

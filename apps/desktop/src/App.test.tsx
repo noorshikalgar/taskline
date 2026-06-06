@@ -198,6 +198,26 @@ describe("TaskHeader", () => {
     ).toBeInTheDocument();
   });
 
+  it("places the compact timeline control in the task header", () => {
+    const onCompactTimelineChange = vi.fn();
+    render(
+      <TaskHeader
+        compactTimeline={false}
+        entriesLoaded={2}
+        onCompactTimelineChange={onCompactTimelineChange}
+        onLogTime={vi.fn()}
+        onUpdate={vi.fn()}
+        task={task}
+        totalMinutes={120}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show compact timeline" }),
+    );
+    expect(onCompactTimelineChange).toHaveBeenCalledWith(true);
+  });
+
   it("copies a task summary and shows quick links in the task header", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {

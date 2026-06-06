@@ -167,6 +167,7 @@ describe("Timeline", () => {
     render(
       <Timeline
         attachments={[attachment]}
+        compact
         entries={[entry, imageOnlyEntry]}
         hasMore={false}
         historyEntryId={null}
@@ -179,13 +180,6 @@ describe("Timeline", () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show compact timeline" }),
-    );
-
-    expect(
-      screen.getByRole("button", { name: "Show detailed timeline" }),
-    ).toBeInTheDocument();
     expect(screen.getAllByText("Private").length).toBeGreaterThan(0);
     expect(screen.getByText("[image]")).toBeInTheDocument();
     expect(screen.queryByText("Show more")).not.toBeInTheDocument();

@@ -3,8 +3,6 @@ import {
   Clock4,
   ExternalLink,
   History,
-  ListCollapse,
-  ListTree,
   Pencil,
   RotateCcw,
   Trash2,
@@ -52,6 +50,7 @@ interface Props {
   onRestoreRevision: (id: string) => Promise<void>;
   onTrash: (id: string) => Promise<void>;
   onLoadMore: () => Promise<void>;
+  compact?: boolean;
 }
 
 const ENTRY_LABELS: Record<EntryType, string> = {
@@ -116,9 +115,8 @@ export function Timeline({
   onRestoreRevision,
   onTrash,
   onLoadMore,
+  compact = false,
 }: Props) {
-  const [compact, setCompact] = useState(false);
-
   if (!entries.length) {
     return (
       <div className="flex min-h-[240px] flex-col items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
@@ -132,26 +130,6 @@ export function Timeline({
 
   return (
     <section aria-label="Task timeline" className="flex flex-col gap-5 pt-6">
-      <div className="flex items-center justify-end">
-        <Button
-          aria-label={
-            compact ? "Show detailed timeline" : "Show compact timeline"
-          }
-          className="h-7 gap-1.5 px-2 text-xs"
-          onClick={() => setCompact((current) => !current)}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          {compact ? (
-            <ListTree className="size-3.5" />
-          ) : (
-            <ListCollapse className="size-3.5" />
-          )}
-          {compact ? "Detailed" : "Compact"}
-        </Button>
-      </div>
-
       {groups.map((group) => (
         <div key={group.label} className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
