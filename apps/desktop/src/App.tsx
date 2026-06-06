@@ -6,6 +6,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  Filter,
   Info,
   ListTodo,
   Moon,
@@ -15,6 +16,7 @@ import {
   Settings,
   Sun,
   Trash2,
+  X,
 } from "lucide-react";
 import { relaunch } from "@tauri-apps/plugin-process";
 import {
@@ -39,6 +41,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -139,6 +149,7 @@ export default function App() {
     "all",
   );
   const [timelineSearch, setTimelineSearch] = useState("");
+  const [timelineRegex, setTimelineRegex] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("tasks");
   const [update, setUpdate] = useState<Update | null>(null);
@@ -253,15 +264,23 @@ export default function App() {
   }, [workspaceMode, worklogRange]);
 
   const visibleEntries = useMemo(() => {
-    const term = timelineSearch.trim().toLowerCase();
+    const term = timelineSearch.trim();
+    const normalizedTerm = term.toLowerCase();
+    const regex =
+      timelineRegex && term
+        ? safelyCompileRegex(term)
+        : { valid: !timelineRegex || !term, pattern: null };
+
     return entries.filter((entry) => {
       if (entryTypeFilter !== "all" && entry.entryType !== entryTypeFilter) {
         return false;
       }
       if (!term) return true;
-      return entry.contentMarkdown.toLowerCase().includes(term);
+      if (regex.pattern) return regex.pattern.test(entry.contentMarkdown);
+      if (!regex.valid) return false;
+      return entry.contentMarkdown.toLowerCase().includes(normalizedTerm);
     });
-  }, [entries, entryTypeFilter, timelineSearch]);
+  }, [entries, entryTypeFilter, timelineRegex, timelineSearch]);
 
   async function loadTasks() {
     try {
@@ -765,7 +784,9 @@ export default function App() {
                 <ThreadColumn
                   entryTypeFilter={entryTypeFilter}
                   onEntryTypeFilterChange={setEntryTypeFilter}
+                  onRegexChange={setTimelineRegex}
                   onSearchChange={setTimelineSearch}
+                  regex={timelineRegex}
                   search={timelineSearch}
                 >
                   <Composer onSubmit={createEntry} taskId={selectedTask.id} />
@@ -1941,6 +1962,16 @@ function formatShortDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function safelyCompileRegex(
+  value: string,
+): { valid: true; pattern: RegExp } | { valid: false; pattern: null } {
+  try {
+    return { valid: true, pattern: new RegExp(value, "i") };
+  } catch {
+    return { valid: false, pattern: null };
+  }
+}
+
 function clampSidebarWidth(value: number) {
   if (!Number.isFinite(value) || value <= 0) return DEFAULT_SIDEBAR_WIDTH;
   const viewportLimit =
@@ -1953,47 +1984,90 @@ function clampSidebarWidth(value: number) {
 function ThreadColumn({
   children,
   search,
+  regex,
   onSearchChange,
+  onRegexChange,
   entryTypeFilter,
   onEntryTypeFilterChange,
 }: {
   children: React.ReactNode;
   search: string;
+  regex: boolean;
   onSearchChange: (value: string) => void;
+  onRegexChange: (value: boolean) => void;
   entryTypeFilter: EntryType | "all";
   onEntryTypeFilterChange: (value: EntryType | "all") => void;
 }) {
   const FILTERS: { value: EntryType | "all"; label: string }[] = [
     { value: "all", label: "All" },
     { value: "worklog", label: "Worklog" },
-    { value: "estimate", label: "Estimate" },
     { value: "status", label: "Status" },
     { value: "progress", label: "Progress" },
     { value: "finding", label: "Findings" },
+    { value: "estimate", label: "Estimate" },
     { value: "blocker", label: "Blockers" },
     { value: "decision", label: "Decisions" },
   ];
+  const primaryFilters = FILTERS.slice(0, 4);
+  const moreFilters = FILTERS.slice(4);
+  const activeMoreFilter = moreFilters.find(
+    (filter) => filter.value === entryTypeFilter,
+  );
+  const regexInvalid =
+    regex && !!search.trim() && !safelyCompileRegex(search).valid;
+
   return (
     <div className="flex min-h-0 min-w-0 flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-background/40 px-6 py-2.5">
-        <div className="relative min-w-[180px] flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-background/45 px-6 py-2.5">
+        <div className="relative min-w-[220px] max-w-xl flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             aria-label="Search timeline"
-            className="h-7 pl-7 text-xs"
+            aria-invalid={regexInvalid}
+            className={cn(
+              "h-8 rounded-md pl-7 text-xs",
+              search ? "pr-16" : "pr-10",
+              regexInvalid &&
+                "border-destructive focus-visible:ring-destructive",
+            )}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder="Search timeline…"
             value={search}
           />
+          <Button
+            aria-label={regex ? "Disable regex search" : "Enable regex search"}
+            aria-pressed={regex}
+            className={cn(
+              "absolute top-1/2 h-6 -translate-y-1/2 px-1.5 font-mono text-[10px]",
+              search ? "right-7" : "right-1",
+              regex && "bg-secondary text-secondary-foreground",
+            )}
+            onClick={() => onRegexChange(!regex)}
+            size="sm"
+            variant={regex ? "secondary" : "ghost"}
+          >
+            .*
+          </Button>
+          {search && (
+            <Button
+              aria-label="Clear timeline search"
+              className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground"
+              onClick={() => onSearchChange("")}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <X className="size-3.5" />
+            </Button>
+          )}
         </div>
-        <div className="flex flex-wrap items-center gap-1">
-          {FILTERS.map((filter) => {
+        <div className="flex min-w-0 items-center gap-1">
+          {primaryFilters.map((filter) => {
             const active = entryTypeFilter === filter.value;
             return (
               <Button
                 aria-pressed={active}
                 className={cn(
-                  "h-7 rounded-full px-2.5 text-[11px] font-medium",
+                  "h-8 rounded-full px-3 text-[11px] font-medium",
                   active && "bg-secondary text-secondary-foreground",
                 )}
                 key={filter.value}
@@ -2005,6 +2079,41 @@ function ThreadColumn({
               </Button>
             );
           })}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                aria-label="More timeline filters"
+                className={cn(
+                  "h-8 gap-1.5 rounded-full px-3 text-[11px] font-medium",
+                  activeMoreFilter && "bg-secondary text-secondary-foreground",
+                )}
+                size="sm"
+                variant={activeMoreFilter ? "secondary" : "ghost"}
+              >
+                <Filter className="size-3.5" />
+                {activeMoreFilter?.label ?? "More"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuLabel>Timeline filters</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {moreFilters.map((filter) => {
+                const active = entryTypeFilter === filter.value;
+                return (
+                  <DropdownMenuItem
+                    className={cn(active && "bg-accent")}
+                    key={filter.value}
+                    onSelect={() => onEntryTypeFilterChange(filter.value)}
+                  >
+                    <span>{filter.label}</span>
+                    {active && (
+                      <span className="ml-auto size-1.5 rounded-full bg-primary" />
+                    )}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       <ScrollArea className="min-h-0 flex-1">

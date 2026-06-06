@@ -1,4 +1,4 @@
-import { Calculator, Clock4, Pause, Play } from "lucide-react";
+import { Calculator, Clock4, Pause, Play, type LucideIcon } from "lucide-react";
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { LogTimeDialog, type LogTimeInput } from "@/components/LogTimeDialog";
 import { Button } from "@/components/ui/button";
@@ -248,57 +248,27 @@ export function TaskHeader({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Worklog
-        </span>
-        <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2 text-xs text-foreground">
-          <Clock4 className="size-3 text-muted-foreground" />
-          <span className="font-mono text-[11px]">
-            {totalMinutes > 0 ? formatDuration(totalMinutes) : "0m"}
-          </span>
-        </span>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              aria-label="Log time"
-              className="h-7 gap-1 px-2 text-xs"
-              onClick={() => setLogTimeOpen(true)}
-              size="sm"
-              variant="outline"
-            >
-              <Clock4 className="size-3" />
-              Log time
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Record time spent on this task</TooltipContent>
-        </Tooltip>
-        <span className="ml-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Estimate
-        </span>
-        <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2 text-xs text-foreground">
-          <Calculator className="size-3 text-muted-foreground" />
-          <span className="font-mono text-[11px]">
-            {task.estimatedMinutes
+      <div className="flex flex-wrap items-center gap-2.5">
+        <TaskFact
+          actionLabel="Log time"
+          icon={Clock4}
+          label="Worklog"
+          onAction={() => setLogTimeOpen(true)}
+          tooltip="Record time spent on this task"
+          value={totalMinutes > 0 ? formatDuration(totalMinutes) : "0m"}
+        />
+        <TaskFact
+          actionLabel="Estimate"
+          icon={Calculator}
+          label="Estimate"
+          onAction={() => setEstimateOpen(true)}
+          tooltip="Set expected time for this task"
+          value={
+            task.estimatedMinutes
               ? formatDuration(task.estimatedMinutes)
-              : "No estimate"}
-          </span>
-        </span>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              aria-label="Set estimate"
-              className="h-7 gap-1 px-2 text-xs"
-              onClick={() => setEstimateOpen(true)}
-              size="sm"
-              variant="outline"
-            >
-              <Calculator className="size-3" />
-              Estimate
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Set expected time for this task</TooltipContent>
-        </Tooltip>
+              : "No estimate"
+          }
+        />
       </div>
       <LogTimeDialog
         onOpenChange={setLogTimeOpen}
@@ -326,6 +296,49 @@ export function TaskHeader({
     }
     await onUpdate({ ...task, status });
   }
+}
+
+function TaskFact({
+  actionLabel,
+  icon: Icon,
+  label,
+  tooltip,
+  value,
+  onAction,
+}: {
+  actionLabel: string;
+  icon: LucideIcon;
+  label: string;
+  tooltip: string;
+  value: string;
+  onAction: () => void;
+}) {
+  return (
+    <div className="inline-flex h-8 items-center overflow-hidden rounded-md border border-border bg-muted/20">
+      <span className="inline-flex h-full items-center gap-1.5 border-r border-border/70 px-2.5">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+        <Icon className="size-3 text-muted-foreground" />
+        <span className="font-mono text-[11px] text-foreground">{value}</span>
+      </span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            aria-label={actionLabel}
+            className="h-8 gap-1 rounded-none border-0 px-2.5 text-xs"
+            onClick={onAction}
+            size="sm"
+            variant="ghost"
+          >
+            <Icon className="size-3" />
+            {actionLabel}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{tooltip}</TooltipContent>
+      </Tooltip>
+    </div>
+  );
 }
 
 function EstimateDialog({
