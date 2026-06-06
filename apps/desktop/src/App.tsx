@@ -2148,7 +2148,7 @@ function ThreadColumn({
               <Button
                 aria-pressed={active}
                 className={cn(
-                  "h-8 rounded-full px-3 text-[11px] font-medium",
+                  "h-8 rounded-md px-3 text-[11px] font-medium",
                   active && "bg-secondary text-secondary-foreground",
                 )}
                 key={filter.value}
@@ -2165,7 +2165,7 @@ function ThreadColumn({
               <Button
                 aria-label="More timeline filters"
                 className={cn(
-                  "h-8 gap-1.5 rounded-full px-3 text-[11px] font-medium",
+                  "h-8 gap-1.5 rounded-md px-3 text-[11px] font-medium",
                   activeMoreFilter && "bg-secondary text-secondary-foreground",
                 )}
                 size="sm"
