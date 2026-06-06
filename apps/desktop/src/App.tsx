@@ -2015,7 +2015,7 @@ function SummaryTab({
       </DialogHeader>
       <div className="mt-6 grid min-h-0 flex-1 grid-cols-2 gap-4">
         <div className="flex min-h-0 flex-col gap-3">
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-card/40">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border">
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
               {order.map((key, index) => {
                 const field = SUMMARY_TEMPLATE_FIELDS.find(
