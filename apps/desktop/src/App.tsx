@@ -1970,92 +1970,94 @@ function SummaryTab({
           reorder — the order is also applied to folder output and CSV columns.
         </DialogDescription>
       </DialogHeader>
-      <div className="mt-6 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
-        <div className="flex min-h-0 flex-col">
-          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
-            {order.map((key, index) => {
-              const field = SUMMARY_TEMPLATE_FIELDS.find(
-                (candidate) => candidate.key === key,
-              );
-              if (!field) return null;
-              const checked = template[key];
-              const disabled = key === "worklogEntries" && !template.worklog;
-              const isDragging = draggedIndex === index;
-              const isDropTarget =
-                dropIndex === index &&
-                draggedIndex !== null &&
-                draggedIndex !== index;
-              return (
-                <div
-                  className={cn(
-                    "rounded-md border border-transparent",
-                    isDropTarget && "border-primary/60 bg-primary/5",
-                    isDragging && "opacity-50",
-                  )}
-                  draggable
-                  key={key}
-                  onDragEnd={handleDragEnd}
-                  onDragOver={handleDragOver(index)}
-                  onDragStart={handleDragStart(index)}
-                  onDrop={handleDrop(index)}
-                >
-                  <label
+      <div className="mt-6 grid min-h-0 flex-1 grid-cols-2 gap-4">
+        <div className="flex min-h-0 flex-col gap-3">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-card/40">
+            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
+              {order.map((key, index) => {
+                const field = SUMMARY_TEMPLATE_FIELDS.find(
+                  (candidate) => candidate.key === key,
+                );
+                if (!field) return null;
+                const checked = template[key];
+                const disabled = key === "worklogEntries" && !template.worklog;
+                const isDragging = draggedIndex === index;
+                const isDropTarget =
+                  dropIndex === index &&
+                  draggedIndex !== null &&
+                  draggedIndex !== index;
+                return (
+                  <div
                     className={cn(
-                      "flex cursor-pointer items-start gap-2.5 rounded-md border border-border bg-background px-2.5 py-2 select-none",
-                      disabled && "cursor-not-allowed opacity-50",
+                      "cursor-grab rounded-md border border-transparent bg-background select-none active:cursor-grabbing",
+                      isDropTarget && "border-primary/60 bg-primary/5",
+                      isDragging && "opacity-50",
                     )}
+                    draggable
+                    key={key}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={handleDragOver(index)}
+                    onDragStart={handleDragStart(index)}
+                    onDrop={handleDrop(index)}
                   >
-                    <GripVertical
-                      aria-hidden
-                      className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
-                    />
-                    <span className="relative mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border bg-background">
-                      <input
-                        aria-label={field.label}
-                        checked={checked}
-                        className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none rounded disabled:cursor-not-allowed"
-                        disabled={disabled}
-                        onChange={(event) =>
-                          onChange({
-                            ...template,
-                            [key]: event.target.checked,
-                          })
-                        }
-                        onDragStart={(event) => event.preventDefault()}
-                        type="checkbox"
-                      />
-                      <Check
+                    <label
+                      className={cn(
+                        "flex cursor-pointer items-start gap-2.5 rounded-md border border-border px-2.5 py-2 select-none",
+                        disabled && "cursor-not-allowed opacity-50",
+                      )}
+                    >
+                      <GripVertical
                         aria-hidden
-                        className="pointer-events-none size-3 text-primary opacity-0 peer-checked:opacity-100"
-                        strokeWidth={3}
+                        className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
                       />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-xs font-medium leading-5">
-                        {field.label}
+                      <span className="relative mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border bg-background">
+                        <input
+                          aria-label={field.label}
+                          checked={checked}
+                          className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none rounded disabled:cursor-not-allowed"
+                          disabled={disabled}
+                          onChange={(event) =>
+                            onChange({
+                              ...template,
+                              [key]: event.target.checked,
+                            })
+                          }
+                          onDragStart={(event) => event.preventDefault()}
+                          type="checkbox"
+                        />
+                        <Check
+                          aria-hidden
+                          className="pointer-events-none size-3 text-primary opacity-0 peer-checked:opacity-100"
+                          strokeWidth={3}
+                        />
                       </span>
-                      <span className="block text-[11px] leading-4 text-muted-foreground">
-                        {field.description}
+                      <span className="min-w-0">
+                        <span className="block text-xs font-medium leading-5">
+                          {field.label}
+                        </span>
+                        <span className="block text-[11px] leading-4 text-muted-foreground">
+                          {field.description}
+                        </span>
                       </span>
-                    </span>
-                  </label>
-                </div>
-              );
-            })}
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div className="mt-2 flex justify-end border-t border-border pt-3">
+          <div className="flex items-center justify-end rounded-md border border-border bg-card/40 px-3 py-2">
             <Button onClick={onReset} size="sm" type="button" variant="ghost">
               Reset to defaults
             </Button>
           </div>
         </div>
-        <div className="flex flex-col">
-          <span className="text-xs font-medium text-muted-foreground">
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card/40">
+          <div className="border-b border-border bg-card/60 px-3 py-2 text-xs font-medium text-muted-foreground">
             Preview
-          </span>
+          </div>
           <pre
             aria-label="Summary preview"
-            className="mt-2 max-h-[280px] min-h-[180px] flex-1 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-3 font-mono text-[11px] leading-5 text-foreground"
+            className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap p-3 font-mono text-[11px] leading-5 text-foreground"
           >
             {preview}
           </pre>
@@ -2107,7 +2109,7 @@ function SettingsDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="grid h-[520px] w-[min(820px,calc(100vw-32px))] max-w-none grid-cols-[180px_minmax(0,1fr)] gap-0 overflow-hidden p-0">
+      <DialogContent className="grid h-[580px] w-[min(860px,calc(100vw-32px))] max-w-none grid-cols-[180px_minmax(0,1fr)] gap-0 overflow-hidden p-0">
         <aside className="border-r border-border bg-card/60 p-3">
           <DialogTitle className="px-2 py-2 text-base">Settings</DialogTitle>
           <div className="mt-3 space-y-1">
