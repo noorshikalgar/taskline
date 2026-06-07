@@ -279,7 +279,7 @@ describe("TaskSidebar", () => {
 
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(
-        ["**Status:** Planned", "**Estimate:** 2h"].join("\n"),
+        "## Task: Refine sidebar\n\n- **Status:** Planned\n- **Estimate:** 2h",
       ),
     );
   });

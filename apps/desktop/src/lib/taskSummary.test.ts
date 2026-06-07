@@ -49,16 +49,16 @@ describe("formatTaskSummary", () => {
   it("uses the default template (no Title) and omits the Updates line", () => {
     const out = formatTaskSummary(baseTask, { totalMinutes: 4 * 60 + 30 });
     expect(out).toBe(
-      ["**Status:** Active", "**Estimate:** 1d", "**Logged:** 4h 30m"].join(
-        "\n",
-      ),
+      ["**Status:** Active", "**Estimate:** 1d", "**Logged:** 4h 30m"]
+        .map((line) => `- ${line}`)
+        .join("\n"),
     );
     expect(out).not.toContain("Updates:");
   });
 
   it("renders the Title line only when its toggle is on", () => {
     const on = formatTaskSummary(baseTask, {}, { ...ALL_OFF, title: true });
-    expect(on).toBe("**Title:** Ship the summary template");
+    expect(on).toBe("- **Title:** Ship the summary template");
 
     const off = formatTaskSummary(baseTask, {}, ALL_OFF);
     expect(off).toBe("");
@@ -122,7 +122,8 @@ describe("formatTaskSummary", () => {
       { totalMinutes: 120, entries },
       DEFAULT_SUMMARY_TEMPLATE,
     );
-    expect(withoutEntries).not.toContain("-");
+    expect(withoutEntries).not.toContain("Implemented X");
+    expect(withoutEntries).not.toContain("Reviewed Y");
   });
 
   it("collapses multi-line entry content to a single line", () => {
@@ -203,21 +204,21 @@ describe("formatTaskSummary", () => {
       order,
     );
     const lines = out.split("\n");
-    expect(lines[0]).toBe("**Title:** Ship the summary template");
-    expect(lines[1]).toMatch(/^\*\*Updated:\*\*/);
-    expect(lines[2]).toBe("**Status:** Active");
-    expect(lines[3]).toBe("**Estimate:** 1d");
-    expect(lines[4]).toBe("**Logged:** 1h 30m");
-    expect(lines[5]).toBe("**Links:**");
+    expect(lines[0]).toBe("- **Title:** Ship the summary template");
+    expect(lines[1]).toMatch(/^-\s+\*\*Updated:\*\* .+/);
+    expect(lines[2]).toBe("- **Status:** Active");
+    expect(lines[3]).toBe("- **Estimate:** 1d");
+    expect(lines[4]).toBe("- **Logged:** 1h 30m");
+    expect(lines[5]).toBe("- **Links:**");
     expect(lines[6]).toBe("- [Header mockup](https://figma.com/file/abc)");
-    expect(lines[7]).toMatch(/^\*\*Created:\*\*/);
+    expect(lines[7]).toMatch(/^-\s+\*\*Created:\*\* .+/);
   });
 });
 
 describe("formatTaskSection", () => {
   it("prepends a Markdown H2 with the task title, even when Title is off", () => {
     const out = formatTaskSection(baseTask, { totalMinutes: 90 });
-    expect(out.startsWith("## Ship the summary template")).toBe(true);
-    expect(out).toContain("**Logged:** 1h 30m");
+    expect(out.startsWith("## Task: Ship the summary template")).toBe(true);
+    expect(out).toContain("- **Logged:** 1h 30m");
   });
 });

@@ -109,7 +109,11 @@ export function formatTaskSummary(
   template: SummaryTemplate = DEFAULT_SUMMARY_TEMPLATE,
   order: ReadonlyArray<SummaryFieldKey> = DEFAULT_SUMMARY_ORDER,
 ) {
-  return buildLines(task, context, template, order).join("\n");
+  return buildLines(task, context, template, order)
+    .map((line) =>
+      line.length === 0 || line.startsWith("- ") ? line : `- ${line}`,
+    )
+    .join("\n");
 }
 
 export function formatTaskSection(
@@ -124,8 +128,8 @@ export function formatTaskSection(
     { ...template, title: false },
     order,
   );
-  const bodyLines = body.length ? body.split("\n") : [];
-  return ["## " + task.title, ...bodyLines].join("\n");
+  const heading = `## Task: ${task.title}`;
+  return body ? `${heading}\n\n${body}` : heading;
 }
 
 export async function copyTaskSummary(
@@ -137,7 +141,7 @@ export async function copyTaskSummary(
   const effectiveTemplate = template ?? loadSummaryTemplate();
   const effectiveOrder = order ?? loadSummaryOrder();
   await writeClipboard(
-    formatTaskSummary(task, context, effectiveTemplate, effectiveOrder),
+    formatTaskSection(task, context, effectiveTemplate, effectiveOrder),
   );
 }
 

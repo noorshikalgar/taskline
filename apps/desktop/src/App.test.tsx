@@ -242,7 +242,7 @@ describe("TaskHeader", () => {
     fireEvent.click(screen.getByLabelText("Copy task summary"));
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(
-        ["**Status:** Active", "**Estimate:** 1d", "**Logged:** 2h"].join("\n"),
+        "## Task: Keep context\n\n- **Status:** Active\n- **Estimate:** 1d\n- **Logged:** 2h",
       ),
     );
 
