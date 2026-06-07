@@ -2821,6 +2821,8 @@ function ThreadColumn({
 }
 
 function EmptyState({ onCreateTask }: { onCreateTask: () => Promise<void> }) {
+  const isMac = /Mac|iPhone|iPad/i.test(navigator.platform);
+  const shortcut = isMac ? "⌘K" : "Ctrl + K";
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
       <img alt="" className="h-12 w-12" src={devthreadMark} />
@@ -2831,7 +2833,7 @@ function EmptyState({ onCreateTask }: { onCreateTask: () => Promise<void> }) {
         <p className="text-sm text-muted-foreground">
           Create a task to start capturing context, or press{" "}
           <span className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-secondary-foreground">
-            ⌘K
+            {shortcut}
           </span>{" "}
           to search.
         </p>
