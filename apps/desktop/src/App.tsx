@@ -40,6 +40,8 @@ import { TaskSidebar } from "@/components/TaskSidebar";
 import { Timeline } from "@/components/Timeline";
 import { ShortcutsTab } from "@/components/ShortcutsTab";
 import { WorklogHoursChart } from "@/components/WorklogHoursChart";
+import { WorklogHeatmap } from "@/components/WorklogHeatmap";
+import { WorklogBars } from "@/components/WorklogBars";
 import { Pager } from "@/components/Pager";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -104,6 +106,10 @@ import {
   type WorklogSettings,
 } from "@/lib/worklogSettings";
 import type { WorklogDay } from "@/lib/worklog";
+import {
+  aggregateWithSegments,
+  averageFraction,
+} from "@/lib/worklogAggregates";
 import { copyTaskSummary, formatTaskSummary } from "@/lib/taskSummary";
 import { copyFolderSummary } from "@/lib/folderSummary";
 import { copyFolderCsv, copyTaskCsv, type FolderSummaryTask } from "@/lib/csv";
@@ -1791,7 +1797,6 @@ function WorklogMetricsView({
     () => buildWorklogDays(range, entries),
     [entries, range],
   );
-  const maxDayMinutes = Math.max(1, ...days.map((day) => day.minutes));
   const totalMinutes = entries.reduce(
     (sum, entry) => sum + entry.durationMinutes,
     0,
@@ -1824,8 +1829,24 @@ function WorklogMetricsView({
     safeLogPage * LOG_PAGE_SIZE,
   );
 
-  const weekly = aggregateWorklog(entries, "week");
-  const monthly = aggregateWorklog(entries, "month");
+  // Weekly and monthly bars, with per-task stacked segments so each
+  // bar shows what ate the time. The average line in the monthly
+  // view sits at the mean over the visible range.
+  const weekly = aggregateWithSegments(
+    entries,
+    "week",
+    weekLabel,
+    (entry) => entry.taskTitle,
+    3,
+  );
+  const monthly = aggregateWithSegments(
+    entries,
+    "month",
+    monthLabel,
+    (entry) => entry.folderName ?? "No folder",
+    4,
+  );
+  const monthlyAverageFraction = averageFraction(monthly);
 
   return (
     <section className="flex min-h-0 flex-1 flex-col bg-background">
@@ -1879,44 +1900,29 @@ function WorklogMetricsView({
 
           <WorklogHoursChart days={days} settings={worklogSettings} />
 
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-medium">Daily heatmap</h2>
-              <span className="text-xs text-muted-foreground">
-                Darker means more logged time
-              </span>
-            </div>
-            <div
-              className="grid grid-flow-col grid-rows-7 gap-1"
-              style={{
-                gridAutoColumns: `minmax(0, ${range === "12m" ? "1fr" : "16px"})`,
-              }}
-            >
-              {days.map((day) => (
-                <button
-                  aria-label={`${formatShortDate(day.date)} ${formatDuration(day.minutes)}`}
-                  className={cn(
-                    "aspect-square w-full min-w-0 rounded-[3px] border border-border/50 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                    range !== "12m" && "size-4",
-                    heatClass(day.minutes, maxDayMinutes),
-                    selectedDay === day.key && "ring-2 ring-primary",
-                  )}
-                  key={day.key}
-                  onClick={() =>
-                    setSelectedDay((current) =>
-                      current === day.key ? null : day.key,
-                    )
-                  }
-                  title={`${formatShortDate(day.date)} · ${formatDuration(day.minutes)}`}
-                  type="button"
-                />
-              ))}
-            </div>
-          </div>
+          <WorklogHeatmap
+            days={days}
+            range={range}
+            selectedDay={selectedDay}
+            settings={worklogSettings}
+            onSelectDay={setSelectedDay}
+          />
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <WorklogBars title="Weekly totals" items={weekly} />
-            <WorklogBars title="Monthly totals" items={monthly} />
+            <WorklogBars
+              items={weekly}
+              showAverage={false}
+              title="Weekly totals"
+              unitLabel="week"
+            />
+            <WorklogBars
+              averageFraction={monthlyAverageFraction}
+              averageLabel="Average"
+              headerRight={`${monthly.length} months`}
+              items={monthly}
+              title="Monthly totals"
+              unitLabel="month"
+            />
           </div>
 
           <div className="rounded-lg border border-border bg-card">
@@ -1995,47 +2001,6 @@ function MetricCard({
   );
 }
 
-function WorklogBars({
-  title,
-  items,
-}: {
-  title: string;
-  items: { label: string; minutes: number }[];
-}) {
-  const max = Math.max(1, ...items.map((item) => item.minutes));
-  return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <h2 className="text-sm font-medium">{title}</h2>
-      <div className="mt-4 space-y-2">
-        {items.slice(-8).map((item) => (
-          <div
-            className="grid grid-cols-[74px_minmax(0,1fr)_56px] items-center gap-2 text-xs"
-            key={item.label}
-          >
-            <span className="truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              {item.label}
-            </span>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary"
-                style={{ width: `${Math.max(4, (item.minutes / max) * 100)}%` }}
-              />
-            </div>
-            <span className="text-right font-mono text-[10px] text-foreground">
-              {formatDuration(item.minutes)}
-            </span>
-          </div>
-        ))}
-        {!items.length && (
-          <p className="py-8 text-center text-xs text-muted-foreground">
-            No logged time yet.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 const WORKLOG_RANGES: { value: WorklogRange; label: string; days: number }[] = [
   { value: "7d", label: "7D", days: 7 },
   { value: "4w", label: "4W", days: 28 },
@@ -2082,32 +2047,6 @@ function buildWorklogDays(
     days.push({ key, date: key, minutes: minutes.get(key) ?? 0 });
   }
   return days;
-}
-
-function aggregateWorklog(
-  entries: WorklogMetricEntry[],
-  unit: "week" | "month",
-) {
-  const buckets = new Map<string, number>();
-  for (const entry of entries) {
-    const label =
-      unit === "week"
-        ? weekLabel(entry.occurredAt)
-        : monthLabel(entry.occurredAt);
-    buckets.set(label, (buckets.get(label) ?? 0) + entry.durationMinutes);
-  }
-  return [...buckets.entries()]
-    .map(([label, minutes]) => ({ label, minutes }))
-    .reverse();
-}
-
-function heatClass(minutes: number, max: number) {
-  if (minutes <= 0) return "bg-muted/40";
-  const ratio = minutes / max;
-  if (ratio > 0.75) return "bg-emerald-500";
-  if (ratio > 0.45) return "bg-emerald-500/70";
-  if (ratio > 0.2) return "bg-emerald-500/45";
-  return "bg-emerald-500/20";
 }
 
 function dayKey(value: string) {
