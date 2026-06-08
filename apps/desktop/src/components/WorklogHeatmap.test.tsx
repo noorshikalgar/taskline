@@ -54,6 +54,60 @@ describe("WorklogHeatmap", () => {
     );
   });
 
+  it("renders visibly different alpha for cells of different intensities", () => {
+    // Regression test: an earlier ladder had 0.85 / 1.0 alphas
+    // for the 2h and 4h+ buckets — a 15% gap that was visually
+    // identical on saturated dark-theme accents. The new ladder
+    // is 0.7 / 0.9 / 1.0, with a 1.5px vs 2.5px vs 1px hatch
+    // difference too.
+    render(
+      <WorklogHeatmap
+        days={[
+          { key: "2026-06-01", date: "2026-06-01", minutes: 2 * 60 },
+          { key: "2026-06-02", date: "2026-06-02", minutes: 6 * 60 },
+        ]}
+        onSelectDay={vi.fn()}
+        range="12w"
+        selectedDay={null}
+      />,
+    );
+    const cells = screen.getAllByTestId("heatmap-cell") as HTMLButtonElement[];
+    // 2h should NOT contain "opacity: 1" — it's the alpha-0.9 bucket
+    // (or 0.7 in the next ladder), not the top one. This catches
+    // the bug where 2h and 6h were both routed to the >=240
+    // bucket.
+    expect(cells[0]!.getAttribute("style") ?? "").not.toMatch(
+      /opacity:\s*1(?:\.0+)?\b/,
+    );
+    // 6h is the heaviest bucket, so it can have opacity 1.
+    expect(cells[1]!.getAttribute("style") ?? "").toMatch(
+      /opacity:\s*1(?:\.0+)?\b/,
+    );
+  });
+
+  it("paints the streak pill using the theme accent (not a hard-coded emerald)", () => {
+    // Regression test: the previous className set 'text-foreground'
+    // which fought the inline colour style and made the pill
+    // invisible on amber-heavy themes.
+    render(
+      <WorklogHeatmap
+        days={DAYS}
+        onSelectDay={vi.fn()}
+        range="12w"
+        selectedDay={null}
+      />,
+    );
+    const pill = screen.getByTestId("worklog-streak-pill");
+    const style = pill.getAttribute("style") ?? "";
+    expect(style).toMatch(/background-color/);
+    expect(style).toMatch(/color:/);
+    // The pill should NOT carry a hard-coded emerald background.
+    expect(pill.className).not.toMatch(/bg-emerald/);
+    // The label colour comes from the inline style, not the class
+    // list (which was the original bug).
+    expect(pill.className).not.toMatch(/text-foreground/);
+  });
+
   it("renders the current streak in the header pill", () => {
     render(
       <WorklogHeatmap

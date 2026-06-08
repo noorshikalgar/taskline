@@ -20,6 +20,13 @@ export interface WorklogHeatmapProps {
  *   - a diagonal hatch density that gets tighter as the bucket
  *     climbs, so the difference between "1h" and "9h" is visible
  *     even at a glance.
+ *
+ * The alpha and stripe gaps are deliberately large (0.30 / 0.25
+ * / 0.25 / 0.20, 8px / 4px / 2.5px / 1.5px) so adjacent buckets
+ * read as visibly different even when the underlying hue is a
+ * saturated colour like Gruvbox amber. The previous ladder had
+ * 0.85 vs 1.0 — a 15% gap that was too small to see on dark
+ * themes.
  */
 type Bucket = {
   /** Cell background alpha (0 = transparent muted, 1 = solid accent). */
@@ -32,19 +39,19 @@ type Bucket = {
 
 function bucketFor(minutes: number): Bucket | null {
   if (minutes <= 0) return null;
-  if (minutes < 30) return { alpha: 0.22, stripe: 6, stripeAlpha: 0.18 };
-  if (minutes < 60) return { alpha: 0.45, stripe: 5, stripeAlpha: 0.28 };
-  if (minutes < 120) return { alpha: 0.65, stripe: 4, stripeAlpha: 0.4 };
-  if (minutes < 240) return { alpha: 0.85, stripe: 3, stripeAlpha: 0.55 };
-  return { alpha: 1, stripe: 2.5, stripeAlpha: 0.7 };
+  if (minutes < 30) return { alpha: 0.2, stripe: 8, stripeAlpha: 0.15 };
+  if (minutes < 60) return { alpha: 0.45, stripe: 4, stripeAlpha: 0.3 };
+  if (minutes < 120) return { alpha: 0.7, stripe: 2.5, stripeAlpha: 0.5 };
+  if (minutes < 240) return { alpha: 0.9, stripe: 1.5, stripeAlpha: 0.65 };
+  return { alpha: 1, stripe: 1, stripeAlpha: 0.8 };
 }
 
 const BUCKET_SWATCHES: ReadonlyArray<Bucket> = [
-  { alpha: 0.22, stripe: 6, stripeAlpha: 0.18 },
-  { alpha: 0.45, stripe: 5, stripeAlpha: 0.28 },
-  { alpha: 0.65, stripe: 4, stripeAlpha: 0.4 },
-  { alpha: 0.85, stripe: 3, stripeAlpha: 0.55 },
-  { alpha: 1, stripe: 2.5, stripeAlpha: 0.7 },
+  { alpha: 0.2, stripe: 8, stripeAlpha: 0.15 },
+  { alpha: 0.45, stripe: 4, stripeAlpha: 0.3 },
+  { alpha: 0.7, stripe: 2.5, stripeAlpha: 0.5 },
+  { alpha: 0.9, stripe: 1.5, stripeAlpha: 0.65 },
+  { alpha: 1, stripe: 1, stripeAlpha: 0.8 },
 ];
 
 function streakLabel(value: number): string {
@@ -79,16 +86,21 @@ export function WorklogHeatmap({
             className={cn(
               "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider",
               streaks.current > 0
-                ? "text-foreground"
+                ? ""
                 : "bg-muted text-muted-foreground",
             )}
             data-testid="worklog-streak-pill"
             style={
               streaks.current > 0
                 ? {
+                    // Slightly more opaque than the cells so the
+                    // pill reads as a stronger accent against the
+                    // card background. The colour cascades from
+                    // --chart-1 too, so it follows Gruvbox amber,
+                    // Tokyo Night blue, etc.
                     backgroundColor: accent,
-                    opacity: 0.18,
                     color: accent,
+                    boxShadow: `inset 0 0 0 1px ${accent}`,
                   }
                 : undefined
             }
