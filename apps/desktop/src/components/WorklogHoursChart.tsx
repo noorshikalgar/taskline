@@ -46,6 +46,21 @@ function formatHoursTooltip(value: number): string {
   return `${value.toFixed(1)}h`;
 }
 
+/**
+ * Tooltip formatter passed to Recharts. The first tuple element is the
+ * rendered cell, the second is the series label. Recharts passes the
+ * series's `name` as the second arg, so we forward it rather than
+ * hardcoding "Logged" — otherwise the Over-goal series would also be
+ * labelled "Logged" and the two rows in the tooltip would read
+ * identically.
+ */
+export function tooltipValueFormatter(
+  value: number | string,
+  name: string | number,
+): [string, string] {
+  return [formatHoursTooltip(Number(value)), String(name)];
+}
+
 function buildChartData(
   days: ReadonlyArray<WorklogDay>,
   goalHours: number,
@@ -170,7 +185,11 @@ export function WorklogHoursChart({ days, settings }: WorklogHoursChartProps) {
                 fontSize: 11,
               }}
               cursor={{ stroke: palette.text, strokeOpacity: 0.25 }}
-              formatter={(value) => [formatHoursTooltip(Number(value)), "Logged"]}
+              // Recharts 3's Formatter type is a complex union; the
+              // exported helper has a tighter signature we can test
+              // directly. The `as never` bridges the two without
+              // re-declaring Recharts' full type at the call site.
+              formatter={tooltipValueFormatter as never}
               labelFormatter={(label) => String(label)}
             />
             <ReferenceLine
