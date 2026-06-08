@@ -600,16 +600,18 @@ export function ReleaseView({
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <Button
+                  aria-label="Copy release summary"
                   disabled={!taggedTasks.length}
                   onClick={() => void copySummary()}
-                  size="sm"
+                  size="icon-sm"
+                  title="Copy release summary"
                   type="button"
                   variant="outline"
                 >
                   <Copy className="size-3.5" />
-                  Copy
                 </Button>
                 <Button
+                  aria-label="Edit version"
                   onClick={() => {
                     setEditVersion(selectedRelease.version);
                     setEditVersionDialogOpen(true);
@@ -622,13 +624,14 @@ export function ReleaseView({
                   <Pencil className="size-3.5" />
                 </Button>
                 <Button
+                  aria-label="Delete release"
                   onClick={() => setDeleteDialogOpen(true)}
-                  size="sm"
+                  size="icon-sm"
+                  title="Delete release"
                   type="button"
                   variant="outline"
                 >
                   <Trash2 className="size-3.5" />
-                  Delete
                 </Button>
               </div>
             </div>
