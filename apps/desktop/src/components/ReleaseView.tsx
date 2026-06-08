@@ -173,6 +173,14 @@ export function ReleaseView({
     }
   }, [releases, selectedName]);
 
+  useEffect(() => {
+    void reloadReleases();
+    // Re-fetch releases from the backend whenever this view mounts so the
+    // saved template (notes) is always loaded fresh, even if the App-level
+    // releases state went stale (e.g. after navigating to a task and back).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const selectedRelease = useMemo(
     () => releases.find((r) => r.name === selectedName) ?? null,
     [releases, selectedName],
@@ -725,6 +733,7 @@ export function ReleaseView({
                     </div>
                   </div>
                   <textarea
+                    aria-label="Release notes template"
                     className="mb-2 flex min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                     onChange={(e) => {
                       setTemplateDraft(e.target.value);
