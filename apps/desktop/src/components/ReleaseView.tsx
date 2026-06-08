@@ -4,6 +4,7 @@ import {
   Check,
   Code,
   Copy,
+  ExternalLink,
   FileText,
   Info,
   ListChecks,
@@ -133,35 +134,46 @@ function TasksTabRow({
   task,
 }: TasksTabRowProps) {
   return (
-    <label
+    <div
       className={cn(
-        "group flex min-w-0 cursor-pointer items-center gap-2 rounded-md border border-transparent px-3 py-1.5 hover:bg-accent/60",
+        "group flex min-w-0 items-center gap-2 rounded-md border border-transparent px-3 py-1.5 hover:bg-accent/60",
         selected && "bg-accent/40",
       )}
     >
-      <input
+      <label
         aria-label={selected ? "Remove from release" : "Add to release"}
-        checked={selected}
-        className="size-3.5 shrink-0 accent-primary"
-        onChange={onToggle}
-        type="checkbox"
-      />
+        className="flex shrink-0 cursor-pointer items-center"
+      >
+        <input
+          checked={selected}
+          className="size-3.5 accent-primary"
+          onChange={onToggle}
+          type="checkbox"
+        />
+      </label>
       <span
         className="mt-0.5 size-1.5 shrink-0 rounded-full"
         aria-hidden
         style={{ backgroundColor: STATUS_DOT[task.status] }}
       />
-      <button
-        className="min-w-0 flex-1 truncate text-left"
-        onClick={onOpen}
-        type="button"
-      >
+      <div className="min-w-0 flex-1 truncate">
         <span className="truncate text-xs font-medium">{task.title}</span>
         <span className="ml-1.5 text-[10px] text-muted-foreground">
           {folderName} · {task.status}
         </span>
+      </div>
+      <button
+        aria-label={`Open task: ${task.title}`}
+        className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:opacity-100"
+        data-testid="open-task-link"
+        onClick={onOpen}
+        title="Open this task"
+        type="button"
+      >
+        <ExternalLink className="size-3" />
+        Open
       </button>
-    </label>
+    </div>
   );
 }
 
@@ -696,45 +708,67 @@ export function ReleaseView({
             {/* Tab bar + tab content */}
             <div className="flex min-h-0 flex-1 flex-col">
               <div
-                className="flex shrink-0 items-center gap-2 border-b border-border bg-card/30 px-6 py-1.5"
+                className="flex shrink-0 items-end gap-2 border-b border-border bg-card/30 px-6"
                 ref={tabBarRef}
               >
-                <div className="inline-flex h-7 items-center rounded-md border border-border bg-background/60 p-0.5 text-[11px]">
+                <div
+                  className="flex items-end gap-1"
+                  role="tablist"
+                >
                   <button
-                    aria-pressed={activeTab === "tasks"}
+                    aria-controls="release-tab-panel-tasks"
+                    aria-selected={activeTab === "tasks"}
                     className={cn(
-                      "inline-flex h-6 items-center gap-1.5 rounded px-2.5 transition-colors",
+                      "relative inline-flex h-9 items-center gap-1.5 px-3 text-xs font-medium transition-colors",
+                      "after:absolute after:inset-x-2 after:bottom-[-1px] after:h-0.5 after:rounded-full after:transition-colors",
                       activeTab === "tasks"
-                        ? "bg-accent text-accent-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
+                        ? "text-foreground after:bg-primary"
+                        : "text-muted-foreground hover:text-foreground after:bg-transparent",
                     )}
                     onClick={() => setActiveTab("tasks")}
+                    role="tab"
                     type="button"
                   >
                     <ListChecks className="size-3.5" />
                     Tasks
                     {taggedTasks.length > 0 && (
-                      <span className="rounded bg-primary/15 px-1.5 text-[10px] font-medium text-primary">
+                      <span
+                        className={cn(
+                          "rounded px-1.5 text-[10px] font-medium",
+                          activeTab === "tasks"
+                            ? "bg-primary/15 text-primary"
+                            : "bg-muted text-muted-foreground",
+                        )}
+                      >
                         {taggedTasks.length}
                       </span>
                     )}
                   </button>
                   <button
-                    aria-pressed={activeTab === "notes"}
+                    aria-controls="release-tab-panel-notes"
+                    aria-selected={activeTab === "notes"}
                     className={cn(
-                      "inline-flex h-6 items-center gap-1.5 rounded px-2.5 transition-colors",
+                      "relative inline-flex h-9 items-center gap-1.5 px-3 text-xs font-medium transition-colors",
+                      "after:absolute after:inset-x-2 after:bottom-[-1px] after:h-0.5 after:rounded-full after:transition-colors",
                       activeTab === "notes"
-                        ? "bg-accent text-accent-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
+                        ? "text-foreground after:bg-primary"
+                        : "text-muted-foreground hover:text-foreground after:bg-transparent",
                     )}
                     onClick={() => setActiveTab("notes")}
+                    role="tab"
                     type="button"
                   >
                     <FileText className="size-3.5" />
                     Release notes
+                    {templateDirty && (
+                      <span
+                        aria-label="Unsaved changes"
+                        className="size-1.5 rounded-full bg-primary"
+                      />
+                    )}
                   </button>
                 </div>
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-2 pb-1.5 pt-1.5">
                   {templateDirty && activeTab !== "notes" && (
                     <span className="hidden text-[11px] text-muted-foreground sm:inline">
                       Unsaved changes
@@ -756,10 +790,11 @@ export function ReleaseView({
                 </div>
               </div>
 
-              <ScrollArea className="min-h-0 flex-1">
+              <div className="min-h-0 flex-1">
                 {/* Tasks tab */}
                 {activeTab === "tasks" && (
-                  <div className="space-y-4 px-6 py-4 pb-8">
+                  <ScrollArea className="h-full">
+                    <div className="space-y-4 px-6 py-4 pb-8">
                     <div>
                       <div className="relative">
                         <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -883,12 +918,13 @@ export function ReleaseView({
                         </p>
                       )}
                     </div>
-                  </div>
+                    </div>
+                  </ScrollArea>
                 )}
 
                 {/* Notes tab */}
                 {activeTab === "notes" && (
-                  <div className="flex min-h-0 flex-col gap-3 px-6 py-4 pb-6">
+                  <div className="flex h-full min-h-0 flex-col gap-3 px-6 py-4 pb-6">
                     {/* Editor / preview toggle for narrow layouts */}
                     {!isWideLayout && (
                       <div className="inline-flex h-7 w-fit items-center rounded-md border border-border bg-card/40 p-0.5 text-[11px]">
@@ -933,7 +969,7 @@ export function ReleaseView({
                       {(isWideLayout || notesPane === "editor") && (
                         <div
                           className={cn(
-                            "flex min-w-0 flex-col",
+                            "flex min-w-0 min-h-0 flex-col",
                             isWideLayout ? "flex-1" : "w-full",
                           )}
                         >
@@ -1147,7 +1183,7 @@ export function ReleaseView({
                       {(isWideLayout || notesPane === "preview") && (
                         <div
                           className={cn(
-                            "flex min-w-0 flex-col",
+                            "flex min-w-0 min-h-0 flex-col",
                             isWideLayout ? "flex-1" : "w-full",
                           )}
                         >
@@ -1215,7 +1251,7 @@ export function ReleaseView({
                     </div>
                   </div>
                 )}
-              </ScrollArea>
+              </div>
             </div>
           </>
         ) : (

@@ -67,7 +67,7 @@ describe("ReleaseView template persistence", () => {
     );
 
     // Default tab is Tasks. Switch to Release notes to access the editor.
-    fireEvent.click(screen.getByRole("button", { name: /Release notes/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Release notes/ }));
 
     const editor = screen.getByLabelText(
       "Release notes template",
@@ -103,7 +103,7 @@ describe("ReleaseView template persistence", () => {
 
     await waitFor(() => expect(onReleasesChanged).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByRole("button", { name: /Release notes/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Release notes/ }));
 
     const editor = screen.getByLabelText(
       "Release notes template",
@@ -132,7 +132,7 @@ describe("ReleaseView template persistence", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Release notes/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Release notes/ }));
 
     const editor = screen.getByLabelText(
       "Release notes template",
@@ -265,6 +265,31 @@ describe("ReleaseView tasks tab", () => {
     expect(screen.getByText("Invalid regex pattern.")).toBeInTheDocument();
   });
 
+  it("navigates to a task only via the per-row Open link, not the row itself", async () => {
+    const onSelectTask = vi.fn();
+    render(
+      <ReleaseView
+        folders={[]}
+        onReleasesChanged={vi.fn().mockResolvedValue(undefined)}
+        onRemoveTaskTag={vi.fn()}
+        onSelectTask={onSelectTask}
+        onTagTask={vi.fn()}
+        releases={[release]}
+        tasks={[task, availableTask]}
+      />,
+    );
+
+    // Clicking the title text or the row body must NOT navigate.
+    fireEvent.click(screen.getByText("Refine release notes"));
+    fireEvent.click(screen.getByText("Polish sidebar"));
+    expect(onSelectTask).not.toHaveBeenCalled();
+
+    // The Open link on the tagged row is the only path to the task view.
+    const openLinks = screen.getAllByTestId("open-task-link");
+    fireEvent.click(openLinks[0]);
+    expect(onSelectTask).toHaveBeenCalledWith("task-a");
+  });
+
   it("persists the active tab across remounts via localStorage", () => {
     const { unmount } = render(
       <ReleaseView
@@ -278,7 +303,7 @@ describe("ReleaseView tasks tab", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Release notes/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Release notes/ }));
     expect(localStorage.getItem("devthread:release-active-tab")).toBe(
       "notes",
     );
