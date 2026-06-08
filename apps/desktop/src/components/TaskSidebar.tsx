@@ -11,11 +11,13 @@ import {
   Pencil,
   Plus,
   Search,
+  Tag,
   Trash2,
+  X,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import type { Folder as FolderModel, Task } from "@/lib/types";
+import type { Folder as FolderModel, Release, Task } from "@/lib/types";
 import { STATUS_BG, STATUS_DOT } from "@/lib/status";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,6 +69,11 @@ interface Props {
     mode: "cascade" | "unassign",
   ) => Promise<void>;
   newFolderDialogRef?: { current: (() => void) | null };
+  onRemoveTaskRelease?: (taskId: string) => Promise<void>;
+  onRemoveFolderRelease?: (folderId: string) => Promise<void>;
+  onTagTaskRelease?: (taskId: string, name: string) => Promise<void>;
+  onTagFolderRelease?: (folderId: string, name: string) => Promise<void>;
+  releases?: Release[];
 }
 
 const UNCATEGORIZED = "__ungrouped__";
@@ -84,6 +91,11 @@ export function TaskSidebar({
   onDeleteTask,
   onDeleteFolder,
   newFolderDialogRef,
+  onRemoveTaskRelease,
+  onRemoveFolderRelease,
+  onTagTaskRelease,
+  onTagFolderRelease,
+  releases,
 }: Props) {
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
@@ -322,9 +334,14 @@ export function TaskSidebar({
                 onDeleteFolder={setFolderToDelete}
                 onMove={handleMove}
                 onDeleteTask={setTaskToDelete}
+                onRemoveFolderRelease={onRemoveFolderRelease}
+                onRemoveTaskRelease={onRemoveTaskRelease}
                 onRenameFolder={openRenameFolderDialog}
                 onSelect={onSelect}
+                onTagFolderRelease={onTagFolderRelease}
+                onTagTaskRelease={onTagTaskRelease}
                 onToggleFolder={toggleFolder}
+                releases={releases}
                 selectedId={selectedId}
                 tasks={grouped.get(folder.id) ?? []}
               />
@@ -338,9 +355,14 @@ export function TaskSidebar({
                 onDeleteFolder={setFolderToDelete}
                 onMove={handleMove}
                 onDeleteTask={setTaskToDelete}
+                onRemoveFolderRelease={onRemoveFolderRelease}
+                onRemoveTaskRelease={onRemoveTaskRelease}
                 onRenameFolder={openRenameFolderDialog}
                 onSelect={onSelect}
+                onTagFolderRelease={onTagFolderRelease}
+                onTagTaskRelease={onTagTaskRelease}
                 onToggleFolder={toggleFolder}
+                releases={releases}
                 selectedId={selectedId}
                 tasks={grouped.get(UNCATEGORIZED) ?? []}
               />
@@ -421,6 +443,11 @@ function FolderGroup({
   onToggleFolder,
   onMove,
   onDeleteTask,
+  onRemoveFolderRelease,
+  onRemoveTaskRelease,
+  onTagFolderRelease,
+  onTagTaskRelease,
+  releases,
 }: {
   folder: FolderModel | null;
   folders: FolderModel[];
@@ -438,6 +465,11 @@ function FolderGroup({
   onToggleFolder: (folderId: string) => void;
   onMove: (taskId: string, folderId: string | null) => Promise<void>;
   onDeleteTask: (task: Task) => void;
+  onRemoveFolderRelease?: (folderId: string) => Promise<void>;
+  onRemoveTaskRelease?: (taskId: string) => Promise<void>;
+  onTagFolderRelease?: (folderId: string, name: string) => Promise<void>;
+  onTagTaskRelease?: (taskId: string, name: string) => Promise<void>;
+  releases?: Release[];
 }) {
   if (!tasks.length && !folder) return null;
   const grouped = Boolean(folder);
@@ -510,6 +542,41 @@ function FolderGroup({
               </ContextMenuSubContent>
             </ContextMenuSub>
             <ContextMenuSeparator />
+            {onTagFolderRelease && releases && releases.length > 0 && (
+              <ContextMenuSub>
+                <ContextMenuSubTrigger
+                  title={
+                    folder.releaseName
+                      ? `Release: ${folder.releaseName}`
+                      : "Tag this folder with a release"
+                  }
+                >
+                  <Tag className="size-3.5 text-muted-foreground" />
+                  {folder.releaseName ? `Release ${folder.releaseName}` : "Tag for release"}
+                </ContextMenuSubTrigger>
+                <ContextMenuSubContent className="w-48">
+                  {releases.map((r) => (
+                    <ContextMenuItem
+                      key={r.name}
+                      onSelect={() => void onTagFolderRelease(folder.id, r.name)}
+                    >
+                      <Tag className="size-3.5 text-muted-foreground" />
+                      <span className="truncate">
+                        {r.version ? `${r.name} (${r.version})` : r.name}
+                      </span>
+                    </ContextMenuItem>
+                  ))}
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onSelect={() => void onRemoveFolderRelease?.(folder.id)}
+                  >
+                    <X className="size-3.5 text-muted-foreground" />
+                    Remove release tag
+                  </ContextMenuItem>
+                </ContextMenuSubContent>
+              </ContextMenuSub>
+            )}
+            <ContextMenuSeparator />
             <ContextMenuItem onSelect={() => onRenameFolder(folder)}>
               <Pencil className="size-3.5 text-muted-foreground" />
               Rename folder
@@ -567,7 +634,10 @@ function FolderGroup({
               key={task.id}
               onMove={onMove}
               onDeleteTask={onDeleteTask}
+              onRemoveTaskRelease={onRemoveTaskRelease}
               onSelect={onSelect}
+              onTagTaskRelease={onTagTaskRelease}
+              releases={releases}
               selected={selectedId === task.id}
               task={task}
             />
@@ -805,6 +875,9 @@ function TaskRow({
   onDeleteTask,
   folders,
   grouped,
+  onTagTaskRelease,
+  onRemoveTaskRelease,
+  releases,
 }: {
   task: Task;
   selected: boolean;
@@ -813,6 +886,9 @@ function TaskRow({
   onDeleteTask: (task: Task) => void;
   folders: FolderModel[];
   grouped: boolean;
+  onTagTaskRelease?: (taskId: string, name: string) => Promise<void>;
+  onRemoveTaskRelease?: (taskId: string) => Promise<void>;
+  releases?: Release[];
 }) {
   return (
     <ContextMenu>
@@ -908,6 +984,43 @@ function TaskRow({
             )}
           </ContextMenuSubContent>
         </ContextMenuSub>
+        <ContextMenuSeparator />
+        {onTagTaskRelease && releases && releases.length > 0 && (
+          <ContextMenuSub>
+            <ContextMenuSubTrigger
+              title={
+                task.releaseName
+                  ? `Release: ${task.releaseName}`
+                  : "Tag this task with a release"
+              }
+            >
+              <Tag className="size-3.5 text-muted-foreground" />
+              {task.releaseName
+                ? `Release ${task.releaseName}`
+                : "Tag for release"}
+            </ContextMenuSubTrigger>
+            <ContextMenuSubContent className="w-48">
+              {releases.map((r) => (
+                <ContextMenuItem
+                  key={r.name}
+                  onSelect={() => void onTagTaskRelease(task.id, r.name)}
+                >
+                  <Tag className="size-3.5 text-muted-foreground" />
+                  <span className="truncate">
+                    {r.version ? `${r.name} (${r.version})` : r.name}
+                  </span>
+                </ContextMenuItem>
+              ))}
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                onSelect={() => void onRemoveTaskRelease?.(task.id)}
+              >
+                <X className="size-3.5 text-muted-foreground" />
+                Remove release tag
+              </ContextMenuItem>
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+        )}
         <ContextMenuSeparator />
         <ContextMenuItem
           className="text-destructive focus:text-destructive"

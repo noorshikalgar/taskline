@@ -26,6 +26,7 @@ const baseTask: Task = {
   nextStep: null,
   estimatedMinutes: 8 * 60,
   folderId: "folder-1",
+  releaseName: null,
   createdAt: "2025-01-01T09:00:00Z",
   updatedAt: "2025-01-02T12:30:00Z",
 };

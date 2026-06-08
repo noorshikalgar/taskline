@@ -26,8 +26,9 @@ describe("LogTimeDialog", () => {
     fireEvent.change(duration, { target: { value: "1d 3h" } });
     expect(screen.getByText("= 1d 3h")).toBeInTheDocument();
 
-    const date = screen.getByLabelText("Date") as HTMLInputElement;
-    fireEvent.change(date, { target: { value: "2026-05-21" } });
+    // Open the calendar popover and select day 5 (past, so not disabled)
+    fireEvent.click(screen.getByRole("button", { name: /\d{4}/ }));
+    fireEvent.click(screen.getByText("5"));
 
     fireEvent.change(screen.getByLabelText("Note (optional)"), {
       target: { value: "Punted the sidebar to v2." },
@@ -38,7 +39,8 @@ describe("LogTimeDialog", () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     const input = onSubmit.mock.calls[0][0] as LogTimeInput;
     expect(input.durationMinutes).toBe(8 * 60 + 3 * 60);
-    expect(input.occurredAt).toMatch(/^2026-05-21T/);
+    expect(input.occurredAt).toMatch(/T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(input.occurredAt).toContain("-05T");
     expect(input.contentMarkdown).toContain("Punted the sidebar to v2.");
     expect(input.visibility).toBe("private");
   });

@@ -52,6 +52,7 @@ const task: Task = {
   nextStep: null,
   estimatedMinutes: null,
   folderId: null,
+  releaseName: null,
   createdAt: "2026-06-05T00:00:00Z",
   updatedAt: "2026-06-05T00:00:00Z",
 };
@@ -527,7 +528,7 @@ describe("TaskHeader", () => {
     render(<App />);
 
     expect(await screen.findByText("Local-first")).toBeInTheDocument();
-    expect(screen.getByText("v0.1.0")).toBeInTheDocument();
+    expect(screen.getByText(`v${__APP_VERSION__}`)).toBeInTheDocument();
     expect(screen.getByText("Active 1")).toBeInTheDocument();
     expect(screen.getByText("Todo 0")).toBeInTheDocument();
     expect(screen.getByText("Done 0")).toBeInTheDocument();
