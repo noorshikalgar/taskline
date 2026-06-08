@@ -171,6 +171,8 @@ pub struct CreateEntryInput {
     pub visibility: String,
     #[serde(default)]
     pub duration_minutes: Option<i64>,
+    #[serde(default)]
+    pub occurred_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1057,6 +1059,7 @@ impl Database {
         }
         let id = id();
         let now = now();
+        let occurred_at = input.occurred_at.unwrap_or_else(|| now.clone());
         let mut connection = self.connection()?;
         let transaction = connection.transaction()?;
         ensure_task(&transaction, &input.task_id)?;
@@ -1071,7 +1074,7 @@ impl Database {
                 input.entry_type,
                 content,
                 input.visibility,
-                now,
+                occurred_at,
                 input.duration_minutes,
             ],
         )?;
@@ -1633,6 +1636,7 @@ mod tests {
                 content_markdown: "Drafts need durable recovery.".into(),
                 visibility: "private".into(),
                 duration_minutes: None,
+                occurred_at: None,
             })
             .unwrap()
     }
@@ -1664,6 +1668,7 @@ mod tests {
                 content_markdown: "Logged 1d 3h on the sidebar.".into(),
                 visibility: "private".into(),
                 duration_minutes: Some(8 * 60 + 3 * 60),
+                occurred_at: None,
             })
             .unwrap();
         assert_eq!(logged.entry_type, "worklog");
@@ -1685,6 +1690,7 @@ mod tests {
                 content_markdown: "Status changed from Planned to Active.".into(),
                 visibility: "private".into(),
                 duration_minutes: None,
+                occurred_at: None,
             })
             .unwrap();
         assert_eq!(logged.entry_type, "status");
@@ -1718,6 +1724,7 @@ mod tests {
                 content_markdown: "Estimate set to 1d.".into(),
                 visibility: "private".into(),
                 duration_minutes: Some(480),
+                occurred_at: None,
             })
             .unwrap();
         assert_eq!(logged.entry_type, "estimate");
@@ -1736,6 +1743,7 @@ mod tests {
                     content_markdown: format!("{entry_type} fact"),
                     visibility: "private".into(),
                     duration_minutes: (entry_type == "worklog").then_some(30),
+                    occurred_at: None,
                 })
                 .unwrap();
             let result = database.trash_entry(&entry.id);
@@ -1750,10 +1758,11 @@ mod tests {
         database
             .create_entry(CreateEntryInput {
                 task_id: task.id.clone(),
-                entry_type: "worklog".into(),
+                 entry_type: "worklog".into(),
                 content_markdown: "Implemented metrics.".into(),
                 visibility: "private".into(),
                 duration_minutes: Some(90),
+                occurred_at: None,
             })
             .unwrap();
         database
@@ -1763,6 +1772,7 @@ mod tests {
                 content_markdown: "Not a worklog.".into(),
                 visibility: "private".into(),
                 duration_minutes: Some(90),
+                occurred_at: None,
             })
             .unwrap();
 
@@ -1865,6 +1875,7 @@ mod tests {
                 content_markdown: "Logged 2h after the schema widened.".into(),
                 visibility: "private".into(),
                 duration_minutes: Some(120),
+                occurred_at: None,
             })
             .unwrap();
         assert_eq!(logged.entry_type, "worklog");

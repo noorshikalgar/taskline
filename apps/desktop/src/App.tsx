@@ -708,10 +708,10 @@ export default function App() {
       input.contentMarkdown,
       input.visibility,
       input.durationMinutes,
+      input.occurredAt,
     );
-    const stamped = { ...entry, occurredAt: input.occurredAt };
     setEntries((current) => {
-      const next = [stamped, ...current];
+      const next = [entry, ...current];
       next.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
       return next;
     });
@@ -1758,7 +1758,9 @@ function WorklogMetricsView({
   range: WorklogRange;
   onRangeChange: (range: WorklogRange) => void;
 }) {
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(
+    dayKey(new Date().toISOString()),
+  );
   const days = useMemo(
     () => buildWorklogDays(range, entries),
     [entries, range],
@@ -1991,13 +1993,19 @@ interface WorklogDay {
 }
 
 function worklogRangeBounds(range: WorklogRange) {
+  const now = new Date();
+  if (range === "12m") {
+    const start = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+    const end = new Date(Date.UTC(now.getUTCFullYear(), 11, 31, 23, 59, 59, 999));
+    return { startAt: start.toISOString(), endAt: end.toISOString() };
+  }
   const days =
     WORKLOG_RANGES.find((option) => option.value === range)?.days ?? 84;
   const end = new Date();
   const start = new Date(end);
-  start.setDate(start.getDate() - days + 1);
-  start.setHours(0, 0, 0, 0);
-  end.setHours(23, 59, 59, 999);
+  start.setUTCDate(start.getUTCDate() - days + 1);
+  start.setUTCHours(0, 0, 0, 0);
+  end.setUTCHours(23, 59, 59, 999);
   return { startAt: start.toISOString(), endAt: end.toISOString() };
 }
 
@@ -2017,7 +2025,7 @@ function buildWorklogDays(
   for (
     const date = new Date(start);
     date <= end;
-    date.setDate(date.getDate() + 1)
+    date.setUTCDate(date.getUTCDate() + 1)
   ) {
     const key = dayKey(date.toISOString());
     days.push({ key, date: key, minutes: minutes.get(key) ?? 0 });

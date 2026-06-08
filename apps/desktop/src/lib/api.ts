@@ -55,6 +55,7 @@ export const api = {
     contentMarkdown: string,
     visibility: Visibility,
     durationMinutes: number | null = null,
+    occurredAt?: string,
   ) =>
     invoke<WorkLogEntry>("create_entry", {
       input: {
@@ -63,6 +64,7 @@ export const api = {
         contentMarkdown,
         visibility,
         durationMinutes,
+        occurredAt,
       },
     }),
   updateEntry: (

@@ -1,6 +1,8 @@
-import { Clock4 } from "lucide-react";
+import { format } from "date-fns";
+import { CalendarIcon, Clock4 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -12,12 +14,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { formatDuration, parseDuration } from "@/lib/duration";
 import type { Visibility } from "@/lib/types";
 
@@ -35,8 +43,9 @@ export interface LogTimeInput {
   visibility: Visibility;
 }
 
-function todayDate() {
-  return new Date().toISOString().slice(0, 10);
+function currentTimeString() {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
 export function LogTimeDialog({
@@ -45,7 +54,12 @@ export function LogTimeDialog({
   onOpenChange,
   onSubmit,
 }: Props) {
-  const [date, setDate] = useState(todayDate());
+  const [date, setDate] = useState<Date>(new Date());
+  const now = new Date();
+  const sixMonthsAgo = new Date(now);
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const [time, setTime] = useState(currentTimeString());
   const [duration, setDuration] = useState("");
   const [note, setNote] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("private");
@@ -54,7 +68,8 @@ export function LogTimeDialog({
 
   useEffect(() => {
     if (open) {
-      setDate(todayDate());
+      setDate(new Date());
+      setTime(currentTimeString());
       setDuration("");
       setNote("");
       setVisibility("private");
@@ -79,12 +94,14 @@ export function LogTimeDialog({
     setError("");
     setSaving(true);
     try {
-      const stamp = new Date(`${date}T12:00:00`).toISOString();
+      const [hours, minutes] = time.split(":").map(Number);
+      const stamp = new Date(date);
+      stamp.setHours(hours, minutes, 0, 0);
       const content =
         note.trim() ||
         `Logged ${formatDuration(parsedMinutes)} on ${taskTitle}.`;
       await onSubmit({
-        occurredAt: stamp,
+        occurredAt: stamp.toISOString(),
         durationMinutes: parsedMinutes,
         contentMarkdown: content,
         visibility,
@@ -112,29 +129,60 @@ export function LogTimeDialog({
         <form className="space-y-4" onSubmit={submit}>
           <div className="grid grid-cols-[1fr_auto] gap-3">
             <div className="space-y-2">
-              <Label htmlFor="log-date">Date</Label>
-              <Input
-                id="log-date"
-                onChange={(event) => setDate(event.target.value)}
-                type="date"
-                value={date}
-              />
+              <Label>Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !date && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 size-4 shrink-0" />
+                    <span className="truncate">
+                      {date ? format(date, "MMM d, yyyy") : "Pick a date"}
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={(d) => d && setDate(d)}
+                    startMonth={sixMonthsAgo}
+                    endMonth={endOfMonth}
+                    disabled={{ after: now }}
+                    autoFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="log-duration">Time spent</Label>
+              <Label htmlFor="log-time">Time</Label>
               <Input
-                aria-describedby="log-duration-hint"
-                autoFocus
-                className="w-32 font-mono"
-                id="log-duration"
-                onChange={(event) => {
-                  setDuration(event.target.value);
-                  if (error) setError("");
-                }}
-                placeholder="1d 3h"
-                value={duration}
+                className="w-28"
+                id="log-time"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="log-duration">Time spent</Label>
+            <Input
+              aria-describedby="log-duration-hint"
+              autoFocus
+              className="font-mono"
+              id="log-duration"
+              onChange={(event) => {
+                setDuration(event.target.value);
+                if (error) setError("");
+              }}
+              placeholder="1d 3h"
+              value={duration}
+            />
           </div>
           <p
             className="-mt-2 font-mono text-[10px] text-muted-foreground"
