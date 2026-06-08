@@ -17,6 +17,7 @@ import {
   Search,
   Settings,
   Sun,
+  Tag,
   Trash2,
   X,
 } from "lucide-react";
@@ -33,6 +34,7 @@ import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { CommandPalette } from "@/components/CommandPalette";
 import { Composer } from "@/components/Composer";
+import { ReleaseView } from "@/components/ReleaseView";
 import { TaskHeader } from "@/components/TaskHeader";
 import { TaskSidebar } from "@/components/TaskSidebar";
 import { Timeline } from "@/components/Timeline";
@@ -90,13 +92,14 @@ import {
   type SummaryTemplate,
 } from "@/lib/summaryTemplate";
 import { copyTaskSummary, formatTaskSummary } from "@/lib/taskSummary";
-import { copyFolderSummary, type FolderSummaryTask } from "@/lib/folderSummary";
-import { copyFolderCsv, copyTaskCsv } from "@/lib/csv";
+import { copyFolderSummary } from "@/lib/folderSummary";
+import { copyFolderCsv, copyTaskCsv, type FolderSummaryTask } from "@/lib/csv";
 import {
   type Attachment,
   type EntryType,
   type Folder,
   type PendingImage,
+  type Release,
   type Task,
   type TaskQuickLink,
   type TaskStatus,
@@ -133,7 +136,7 @@ type UpdateState =
   | "downloading"
   | "installed"
   | "error";
-type WorkspaceMode = "tasks" | "archive" | "worklog";
+type WorkspaceMode = "tasks" | "archive" | "worklog" | "releases";
 type WorklogRange = "7d" | "4w" | "12w" | "12m";
 interface AppContextMenuState {
   x: number;
@@ -221,6 +224,7 @@ export default function App() {
     [],
   );
   const [worklogLoading, setWorklogLoading] = useState(false);
+  const [releases, setReleases] = useState<Release[]>([]);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [contextMenu, setContextMenu] = useState<AppContextMenuState | null>(
     null,
@@ -241,6 +245,7 @@ export default function App() {
   useEffect(() => {
     void loadTasks();
     void loadFolders();
+    void loadReleases();
   }, []);
 
   useEffect(() => {
@@ -401,6 +406,70 @@ export default function App() {
       setFolders(await api.listFolders());
     } catch (cause) {
       setError(String(cause));
+    }
+  }
+
+  async function loadReleases() {
+    try {
+      setReleases(await api.listReleases());
+    } catch (cause) {
+      setError(String(cause));
+    }
+  }
+
+  async function handleTagTask(taskId: string, name: string) {
+    try {
+      await api.tagTaskRelease(taskId, name);
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId ? { ...t, releaseName: name } : t,
+        ),
+      );
+    } catch (cause) {
+      setError(String(cause));
+      throw cause;
+    }
+  }
+
+  async function handleRemoveTaskTag(taskId: string) {
+    try {
+      await api.removeTaskRelease(taskId);
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId ? { ...t, releaseName: null } : t,
+        ),
+      );
+    } catch (cause) {
+      setError(String(cause));
+      throw cause;
+    }
+  }
+
+  async function handleTagFolderRelease(folderId: string, name: string) {
+    try {
+      await api.tagFolderRelease(folderId, name);
+      setFolders((prev) =>
+        prev.map((f) =>
+          f.id === folderId ? { ...f, releaseName: name } : f,
+        ),
+      );
+    } catch (cause) {
+      setError(String(cause));
+      throw cause;
+    }
+  }
+
+  async function handleRemoveFolderReleaseTag(folderId: string) {
+    try {
+      await api.removeFolderRelease(folderId);
+      setFolders((prev) =>
+        prev.map((f) =>
+          f.id === folderId ? { ...f, releaseName: null } : f,
+        ),
+      );
+    } catch (cause) {
+      setError(String(cause));
+      throw cause;
     }
   }
 
@@ -988,6 +1057,7 @@ export default function App() {
               mode === "archive" ? "tasks" : "archive",
             );
           }}
+          onReleasesOpen={() => setWorkspaceMode("releases")}
           onSearchOpen={() => setPaletteOpen(true)}
           onSettingsOpen={() => setSettingsOpen(true)}
           onTaskToggle={() => {
@@ -999,6 +1069,7 @@ export default function App() {
             setSidebarOpen((open) => !open);
           }}
           onWorklogOpen={() => setWorkspaceMode("worklog")}
+          releasesActive={workspaceMode === "releases"}
           tasksActive={workspaceMode === "tasks"}
           tasksOpen={sidebarOpen}
           updateAvailable={updateState === "available"}
@@ -1024,8 +1095,13 @@ export default function App() {
               onDeleteFolder={deleteFolder}
               onDeleteTask={deleteTask}
               onMoveTask={moveTask}
+              onRemoveFolderRelease={handleRemoveFolderReleaseTag}
+              onRemoveTaskRelease={handleRemoveTaskTag}
               onRenameFolder={renameFolder}
               onSelect={setSelectedId}
+              onTagFolderRelease={handleTagFolderRelease}
+              onTagTaskRelease={handleTagTask}
+              releases={releases}
               selectedId={selectedId}
               tasks={sidebarTasks}
             />
@@ -1050,13 +1126,15 @@ export default function App() {
         <main className="flex min-h-0 min-w-0 flex-1 select-none flex-col">
           {error && (
             <Alert
-              className="m-4 flex items-start gap-3 border-destructive/30 bg-destructive/5"
+              className="m-4 flex flex-wrap items-start gap-3 border-destructive/30 bg-destructive/5"
               variant="destructive"
             >
-              <Info />
-              <div className="flex-1">
+              <Info className="mt-0.5 shrink-0" />
+              <div className="min-w-0 flex-1 break-words">
                 <AlertTitle>Something went wrong</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription className="break-words">
+                  {error}
+                </AlertDescription>
               </div>
               <Button onClick={() => setError("")} size="sm" variant="ghost">
                 Dismiss
@@ -1076,6 +1154,20 @@ export default function App() {
               loading={worklogLoading}
               onRangeChange={setWorklogRange}
               range={worklogRange}
+            />
+          ) : workspaceMode === "releases" ? (
+            <ReleaseView
+              folders={folders}
+              onReleasesChanged={loadReleases}
+              onRemoveTaskTag={handleRemoveTaskTag}
+              onSelectTask={(id: string) => {
+                setSelectedId(id);
+                setWorkspaceMode("tasks");
+                setSidebarOpen(true);
+              }}
+              onTagTask={handleTagTask}
+              releases={releases}
+              tasks={sidebarTasks}
             />
           ) : selectedTask ? (
             <>
@@ -1097,10 +1189,17 @@ export default function App() {
                 onStatusChange={(status) =>
                   updateTaskStatus(selectedTask, status)
                 }
+                onRemoveReleaseTag={() =>
+                  handleRemoveTaskTag(selectedTask.id)
+                }
                 onStatusOpenChange={setTaskStatusOpen}
+                onTagRelease={(name) =>
+                  handleTagTask(selectedTask.id, name)
+                }
                 onUpdate={updateTask}
                 pendingTitleEdit={pendingTitleEdit}
                 quickLinks={quickLinks}
+                releases={releases}
                 statusOpen={taskStatusOpen}
                 task={selectedTask}
                 totalMinutes={totalMinutes}
@@ -1185,25 +1284,29 @@ export default function App() {
 }
 
 function AppRail({
+  archiveActive,
+  onArchiveToggle,
+  onReleasesOpen,
+  onSearchOpen,
+  onSettingsOpen,
+  onTaskToggle,
+  onWorklogOpen,
+  releasesActive,
   tasksActive,
   tasksOpen,
-  archiveActive,
-  onTaskToggle,
-  onSearchOpen,
-  onArchiveToggle,
-  onWorklogOpen,
-  onSettingsOpen,
   updateAvailable,
   worklogActive,
 }: {
+  archiveActive: boolean;
+  onArchiveToggle: () => void;
+  onReleasesOpen: () => void;
+  onSearchOpen: () => void;
+  onSettingsOpen: () => void;
+  onTaskToggle: () => void;
+  onWorklogOpen: () => void;
+  releasesActive: boolean;
   tasksActive: boolean;
   tasksOpen: boolean;
-  archiveActive: boolean;
-  onTaskToggle: () => void;
-  onSearchOpen: () => void;
-  onArchiveToggle: () => void;
-  onWorklogOpen: () => void;
-  onSettingsOpen: () => void;
   updateAvailable: boolean;
   worklogActive: boolean;
 }) {
@@ -1234,6 +1337,13 @@ function AppRail({
       </Tooltip>
 
       <div className="mt-auto flex flex-col gap-1">
+        <RailButton
+          active={releasesActive}
+          icon={Tag}
+          label="Open releases"
+          onClick={onReleasesOpen}
+          tooltip="Releases"
+        />
         <RailButton
           active={worklogActive}
           icon={BarChart3}
@@ -2053,6 +2163,7 @@ const SAMPLE_SUMMARY_TASK = {
   nextStep: null,
   estimatedMinutes: 8 * 60,
   folderId: null,
+  releaseName: null,
   createdAt: "2025-01-01T09:00:00Z",
   updatedAt: "2025-01-02T12:30:00Z",
 };

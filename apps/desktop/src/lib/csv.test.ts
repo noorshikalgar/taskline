@@ -26,6 +26,7 @@ const baseTask: Task = {
   nextStep: null,
   estimatedMinutes: 8 * 60,
   folderId: "folder-1",
+  releaseName: null,
   createdAt: "2025-01-01T09:00:00Z",
   updatedAt: "2025-01-02T12:30:00Z",
 };
@@ -33,6 +34,7 @@ const baseTask: Task = {
 const folder: Folder = {
   id: "folder-1",
   name: "Q1 roadmap",
+  releaseName: null,
   createdAt: "2025-01-01T00:00:00Z",
   updatedAt: "2025-01-15T00:00:00Z",
 };

@@ -15,6 +15,7 @@ const baseTask: Task = {
   nextStep: null,
   estimatedMinutes: null,
   folderId: null,
+  releaseName: null,
   createdAt: "2026-06-05T00:00:00Z",
   updatedAt: "2026-06-05T00:00:00Z",
 };
@@ -82,6 +83,7 @@ describe("TaskSidebar", () => {
       {
         id: "folder-a",
         name: "In progress with a very long folder name",
+        releaseName: null,
         createdAt: "2026-06-05T00:00:00Z",
         updatedAt: "2026-06-05T00:00:00Z",
       },
@@ -133,6 +135,7 @@ describe("TaskSidebar", () => {
       {
         id: "folder-a",
         name: "UI",
+        releaseName: null,
         createdAt: "2026-06-05T00:00:00Z",
         updatedAt: "2026-06-05T00:00:00Z",
       },
@@ -185,6 +188,7 @@ describe("TaskSidebar", () => {
       {
         id: "folder-a",
         name: "Backlog",
+        releaseName: null,
         createdAt: "2026-06-05T00:00:00Z",
         updatedAt: "2026-06-05T00:00:00Z",
       },
@@ -224,6 +228,7 @@ describe("TaskSidebar", () => {
       {
         id: "folder-a",
         name: "Backlog",
+        releaseName: null,
         createdAt: "2026-06-05T00:00:00Z",
         updatedAt: "2026-06-05T00:00:00Z",
       },
@@ -290,6 +295,7 @@ describe("TaskSidebar", () => {
       {
         id: "folder-a",
         name: "Backlog",
+        releaseName: null,
         createdAt: "2026-06-05T00:00:00Z",
         updatedAt: "2026-06-05T00:00:00Z",
       },

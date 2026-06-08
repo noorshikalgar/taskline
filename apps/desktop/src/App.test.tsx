@@ -52,6 +52,7 @@ const task: Task = {
   nextStep: null,
   estimatedMinutes: null,
   folderId: null,
+  releaseName: null,
   createdAt: "2026-06-05T00:00:00Z",
   updatedAt: "2026-06-05T00:00:00Z",
 };

@@ -31,6 +31,7 @@ export interface Task {
   nextStep: string | null;
   estimatedMinutes: number | null;
   folderId: string | null;
+  releaseName: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -38,6 +39,17 @@ export interface Task {
 export interface Folder {
   id: string;
   name: string;
+  releaseName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Release {
+  name: string;
+  version: string | null;
+  descriptionMarkdown: string;
+  releasedAt: string | null;
+  folderId: string | null;
   createdAt: string;
   updatedAt: string;
 }

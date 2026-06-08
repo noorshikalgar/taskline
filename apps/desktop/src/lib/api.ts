@@ -4,6 +4,7 @@ import type {
   EntryType,
   Folder,
   LinkMetadata,
+  Release,
   Task,
   TaskQuickLink,
   TaskStatus,
@@ -113,6 +114,32 @@ export const api = {
   deleteQuickLink: (id: string) => invoke<void>("delete_quick_link", { id }),
   fetchLinkPreview: (url: string) =>
     invoke<LinkMetadata>("fetch_link_preview", { url }),
+  listReleases: () => invoke<Release[]>("list_releases"),
+  createRelease: (name: string, version: string | null, descriptionMarkdown?: string) =>
+    invoke<Release>("create_release", {
+      input: { name, version, descriptionMarkdown: descriptionMarkdown ?? "" },
+    }),
+  updateRelease: (
+    name: string,
+    input: {
+      version?: string | null;
+      descriptionMarkdown?: string;
+      releasedAt?: string | null;
+    },
+  ) =>
+    invoke<Release>("update_release", {
+      input: { name, ...input },
+    }),
+  deleteRelease: (name: string) =>
+    invoke<void>("delete_release", { name }),
+  tagTaskRelease: (taskId: string, name: string) =>
+    invoke<void>("tag_task_release", { taskId, name }),
+  removeTaskRelease: (taskId: string) =>
+    invoke<void>("remove_task_release", { taskId }),
+  tagFolderRelease: (folderId: string, name: string) =>
+    invoke<void>("tag_folder_release", { folderId, name }),
+  removeFolderRelease: (folderId: string) =>
+    invoke<void>("remove_folder_release", { folderId }),
   createAttachment: (
     workLogEntryId: string,
     originalName: string,

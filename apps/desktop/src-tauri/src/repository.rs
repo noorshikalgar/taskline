@@ -253,8 +253,8 @@ pub struct UpdateQuickLinkInput {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Release {
-    pub version: String,
     pub name: String,
+    pub version: Option<String>,
     pub description_markdown: String,
     pub released_at: Option<String>,
     pub folder_id: Option<String>,
@@ -264,19 +264,18 @@ pub struct Release {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateReleaseInput {
-    pub version: String,
     pub name: String,
+    pub version: Option<String>,
     pub description_markdown: Option<String>,
     pub folder_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateReleaseInput {
-    pub version: String,
-    pub name: Option<String>,
+    pub name: String,
+    pub version: Option<String>,
     pub description_markdown: Option<String>,
     pub released_at: Option<Option<String>>,
-    pub folder_id: Option<Option<String>>,
 }
 
 pub struct Database {
@@ -317,7 +316,7 @@ impl Database {
     }
 
     fn configure(connection: &Connection) -> Result<()> {
-        connection.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;")?;
+        connection.execute_batch("PRAGMA journal_mode = WAL;")?;
         connection.execute_batch(MIGRATION)?;
         connection.execute_batch(ATTACHMENT_MIGRATION)?;
         Self::ensure_tasks_folder_column(connection)?;
@@ -329,8 +328,8 @@ impl Database {
         connection.execute_batch(FOLDER_MIGRATION)?;
         connection.execute_batch(QUICK_LINK_MIGRATION)?;
         connection.execute_batch(RELEASE_MIGRATION)?;
-        Self::ensure_tasks_release_column(connection)?;
-        Self::ensure_folders_release_column(connection)?;
+        Self::migrate_releases_to_name_key(connection)?;
+        connection.execute_batch("PRAGMA foreign_keys = ON;")?;
         Ok(())
     }
 
@@ -445,36 +444,180 @@ impl Database {
         Ok(())
     }
 
-    fn ensure_tasks_release_column(connection: &Connection) -> Result<()> {
-        let mut pragma_columns = connection.prepare("PRAGMA table_info(tasks)")?;
-        let names: Vec<String> = pragma_columns
-            .query_map([], |row| row.get::<_, String>(1))?
-            .map(|entry| entry.map_err(RepositoryError::Database))
-            .collect::<Result<Vec<_>>>()?;
-        if names.iter().any(|name| name == "release_version") {
+    /// Migrate the releases table to use `name` as the primary key (was
+    /// `version`). Rebuilds `tasks` and `folders` so their `release_*`
+    /// columns point at the new PK, preserving any existing tags.
+    ///
+    /// Idempotent: if the new schema is already in place, this is a no-op.
+    fn migrate_releases_to_name_key(connection: &Connection) -> Result<()> {
+        // Clean up any partial state from previous failed runs.
+        connection.execute("DROP TABLE IF EXISTS releases_old", [])?;
+
+        // Inspect the PK of the existing releases table to decide if migration
+        // is needed. If the table doesn't exist yet, RELEASE_MIGRATION will
+        // have just created it with the new schema, so we still need to
+        // rebuild it from the (old) DEFAULT version.
+        let pk_column: Option<String> = connection
+            .query_row(
+                "SELECT name FROM pragma_table_info('releases') WHERE pk > 0 LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        // If releases table doesn't exist or already uses name as PK, bail.
+        if pk_column.as_deref() == Some("name") {
             return Ok(());
         }
-        connection.execute(
-            "ALTER TABLE tasks ADD COLUMN release_version TEXT REFERENCES releases(version)",
-            [],
+        // Fresh DB case: no releases table yet (RELEASE_MIGRATION's
+        // CREATE TABLE IF NOT EXISTS was a no-op).
+        if pk_column.is_none() {
+            return Ok(());
+        }
+
+        // Old schema (version PK). Rebuild all three tables.
+        connection.execute_batch(
+            "PRAGMA foreign_keys = OFF;
+             BEGIN;
+             DROP TABLE IF EXISTS releases_new;
+             CREATE TABLE releases_new (
+               name TEXT PRIMARY KEY,
+               version TEXT,
+               description_markdown TEXT NOT NULL DEFAULT '',
+               released_at TEXT,
+               folder_id TEXT REFERENCES folders(id),
+               created_at TEXT NOT NULL,
+               updated_at TEXT NOT NULL
+             );
+             INSERT INTO releases_new (name, version, description_markdown, released_at, folder_id, created_at, updated_at)
+             SELECT name, version, description_markdown, released_at, folder_id, created_at, updated_at
+             FROM releases;
+             DROP TABLE releases;
+             ALTER TABLE releases_new RENAME TO releases;
+             COMMIT;",
+        )?;
+
+        // Now rebuild tasks and folders. We have to do this without foreign
+        // keys enabled so we can drop the old columns that reference
+        // releases(version). Foreign keys will be re-enabled at the end of
+        // configure().
+        Self::rebuild_tasks_release_column(connection)?;
+        Self::rebuild_folders_release_column(connection)?;
+        Ok(())
+    }
+
+    fn rebuild_tasks_release_column(connection: &Connection) -> Result<()> {
+        // If the new column already exists, nothing to do.
+        let columns = Self::table_columns(connection, "tasks")?;
+        if columns.iter().any(|c| c == "release_name") {
+            return Ok(());
+        }
+
+        // No old column either — fresh DB. Just add the new column with FK.
+        if !columns.iter().any(|c| c == "release_version") {
+            connection.execute(
+                "ALTER TABLE tasks ADD COLUMN release_name TEXT REFERENCES releases(name)",
+                [],
+            )?;
+            return Ok(());
+        }
+
+        // Old column exists. Rebuild the table to drop it and add the new
+        // column. We rebuild WITHOUT the FK first, then add the FK by
+        // recreating the table. Actually, since we can ALTER TABLE ADD
+        // COLUMN with FK in SQLite, we can do this:
+        //  1. Add the new column (no FK initially because old data has
+        //     version strings that don't exist as names).
+        //  2. UPDATE new column to the name corresponding to the version
+        //     in the old column.
+        //  3. DROP the old column.
+        // The old column can't be dropped directly because it's part of
+        // an FK. So we rebuild the table.
+
+        // The `deleted_at` column exists (it was added in 001_initial). The
+        // actual list of columns at this point in the schema is:
+        // id, title, description_markdown, status, next_step, estimated_minutes,
+        // folder_id, release_version, created_at, updated_at, deleted_at
+        connection.execute_batch(
+            "BEGIN;
+             DROP TABLE IF EXISTS tasks_new;
+             CREATE TABLE tasks_new (
+               id TEXT PRIMARY KEY,
+               title TEXT NOT NULL CHECK(length(trim(title)) > 0),
+               description_markdown TEXT NOT NULL DEFAULT '',
+               status TEXT NOT NULL DEFAULT 'planned'
+                 CHECK(status IN ('planned', 'active', 'blocked', 'paused', 'done', 'archived')),
+               next_step TEXT,
+               estimated_minutes INTEGER,
+               folder_id TEXT REFERENCES folders(id),
+               release_name TEXT REFERENCES releases(name),
+               created_at TEXT NOT NULL,
+               updated_at TEXT NOT NULL,
+               deleted_at TEXT
+             );
+             INSERT INTO tasks_new (id, title, description_markdown, status, next_step, estimated_minutes, folder_id, release_name, created_at, updated_at, deleted_at)
+             SELECT
+               t.id, t.title, t.description_markdown, t.status, t.next_step, t.estimated_minutes, t.folder_id,
+               (SELECT r.name FROM releases r WHERE r.version = t.release_version),
+               t.created_at, t.updated_at, t.deleted_at
+             FROM tasks t;
+             DROP TABLE tasks;
+             ALTER TABLE tasks_new RENAME TO tasks;
+             CREATE INDEX IF NOT EXISTS idx_tasks_updated_at
+               ON tasks(deleted_at, updated_at DESC);
+             CREATE INDEX IF NOT EXISTS idx_tasks_folder_id ON tasks(folder_id);
+             CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+             COMMIT;",
         )?;
         Ok(())
     }
 
-    fn ensure_folders_release_column(connection: &Connection) -> Result<()> {
-        let mut pragma_columns = connection.prepare("PRAGMA table_info(folders)")?;
-        let names: Vec<String> = pragma_columns
+    fn rebuild_folders_release_column(connection: &Connection) -> Result<()> {
+        let columns = Self::table_columns(connection, "folders")?;
+        if columns.iter().any(|c| c == "release_name") {
+            return Ok(());
+        }
+        if !columns.iter().any(|c| c == "release_version") {
+            connection.execute(
+                "ALTER TABLE folders ADD COLUMN release_name TEXT REFERENCES releases(name)",
+                [],
+            )?;
+            return Ok(());
+        }
+        connection.execute_batch(
+            "BEGIN;
+             DROP TABLE IF EXISTS folders_new;
+             CREATE TABLE folders_new (
+               id TEXT PRIMARY KEY,
+               name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+               release_name TEXT REFERENCES releases(name),
+               created_at TEXT NOT NULL,
+               updated_at TEXT NOT NULL,
+               deleted_at TEXT
+             );
+             INSERT INTO folders_new (id, name, release_name, created_at, updated_at, deleted_at)
+             SELECT
+               f.id, f.name,
+               (SELECT r.name FROM releases r WHERE r.version = f.release_version),
+               f.created_at, f.updated_at, f.deleted_at
+             FROM folders f;
+             DROP TABLE folders;
+             ALTER TABLE folders_new RENAME TO folders;
+             CREATE INDEX IF NOT EXISTS idx_folders_updated_at
+               ON folders(deleted_at, updated_at DESC);
+             CREATE INDEX IF NOT EXISTS idx_folders_name ON folders(name);
+             COMMIT;",
+        )?;
+        Ok(())
+    }
+
+    fn table_columns(connection: &Connection, table: &str) -> Result<Vec<String>> {
+        let mut stmt = connection.prepare(&format!("PRAGMA table_info({})", table))?;
+        let names: Vec<String> = stmt
             .query_map([], |row| row.get::<_, String>(1))?
             .map(|entry| entry.map_err(RepositoryError::Database))
             .collect::<Result<Vec<_>>>()?;
-        if names.iter().any(|name| name == "release_version") {
-            return Ok(());
-        }
-        connection.execute(
-            "ALTER TABLE folders ADD COLUMN release_version TEXT REFERENCES releases(version)",
-            [],
-        )?;
-        Ok(())
+        Ok(names)
     }
 
     fn connection(&self) -> Result<MutexGuard<'_, Connection>> {
@@ -683,14 +826,14 @@ impl Database {
     pub fn list_releases(&self) -> Result<Vec<Release>> {
         let connection = self.connection()?;
         let mut statement = connection.prepare(
-            "SELECT version, name, description_markdown, released_at, folder_id, created_at, updated_at
+            "SELECT name, version, description_markdown, released_at, folder_id, created_at, updated_at
              FROM releases ORDER BY released_at DESC NULLS LAST, created_at DESC",
         )?;
         let releases = statement
             .query_map([], |row| {
                 Ok(Release {
-                    version: row.get(0)?,
-                    name: row.get(1)?,
+                    name: row.get(0)?,
+                    version: row.get(1)?,
                     description_markdown: row.get(2)?,
                     released_at: row.get(3)?,
                     folder_id: row.get(4)?,
@@ -708,19 +851,19 @@ impl Database {
         let description_markdown = input.description_markdown.unwrap_or_default();
         let stamp = now();
         connection.execute(
-            "INSERT INTO releases (version, name, description_markdown, folder_id, created_at, updated_at)
+            "INSERT INTO releases (name, version, description_markdown, folder_id, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
             params![
-                input.version,
                 input.name,
+                input.version,
                 description_markdown,
                 input.folder_id,
                 stamp,
             ],
         )?;
         Ok(Release {
-            version: input.version,
             name: input.name,
+            version: input.version,
             description_markdown,
             released_at: None,
             folder_id: input.folder_id,
@@ -733,13 +876,13 @@ impl Database {
         let connection = self.connection()?;
         let existing = connection
             .query_row(
-                "SELECT version, name, description_markdown, released_at, folder_id, created_at, updated_at
-                 FROM releases WHERE version = ?1",
-                [&input.version],
+                "SELECT name, version, description_markdown, released_at, folder_id, created_at, updated_at
+                 FROM releases WHERE name = ?1",
+                [&input.name],
                 |row| {
                     Ok(Release {
-                        version: row.get(0)?,
-                        name: row.get(1)?,
+                        name: row.get(0)?,
+                        version: row.get(1)?,
                         description_markdown: row.get(2)?,
                         released_at: row.get(3)?,
                         folder_id: row.get(4)?,
@@ -752,17 +895,17 @@ impl Database {
             .ok_or_else(|| RepositoryError::NotFound("Release"))?;
 
         let stamp = now();
-        let name = input.name.unwrap_or(existing.name);
+        let version = input.version.or(existing.version);
         let description_markdown = input.description_markdown.unwrap_or(existing.description_markdown);
         let released_at = input.released_at.unwrap_or(existing.released_at);
         connection.execute(
-            "UPDATE releases SET name = ?1, description_markdown = ?2, released_at = ?3, updated_at = ?4
-             WHERE version = ?5",
-            params![name, description_markdown, released_at, stamp, input.version],
+            "UPDATE releases SET version = ?1, description_markdown = ?2, released_at = ?3, updated_at = ?4
+             WHERE name = ?5",
+            params![version, description_markdown, released_at, stamp, input.name],
         )?;
         Ok(Release {
-            version: input.version,
-            name,
+            name: input.name,
+            version,
             description_markdown,
             released_at,
             folder_id: existing.folder_id,
@@ -771,29 +914,29 @@ impl Database {
         })
     }
 
-    pub fn delete_release(&self, version: &str) -> Result<()> {
+    pub fn delete_release(&self, name: &str) -> Result<()> {
         let mut connection = self.connection()?;
         let transaction = connection.transaction()?;
         transaction.execute(
-            "UPDATE tasks SET release_version = NULL WHERE release_version = ?1",
-            params![version],
+            "UPDATE tasks SET release_name = NULL WHERE release_name = ?1",
+            params![name],
         )?;
         transaction.execute(
-            "UPDATE folders SET release_version = NULL WHERE release_version = ?1",
-            params![version],
+            "UPDATE folders SET release_name = NULL WHERE release_name = ?1",
+            params![name],
         )?;
-        transaction.execute("DELETE FROM releases WHERE version = ?1", params![version])?;
+        transaction.execute("DELETE FROM releases WHERE name = ?1", params![name])?;
         transaction.commit()?;
         Ok(())
     }
 
-    pub fn tag_task_release(&self, task_id: &str, version: &str) -> Result<()> {
+    pub fn tag_task_release(&self, task_id: &str, name: &str) -> Result<()> {
         let connection = self.connection()?;
         let stamp = now();
         let changed = connection.execute(
-            "UPDATE tasks SET release_version = ?1, updated_at = ?2
+            "UPDATE tasks SET release_name = ?1, updated_at = ?2
              WHERE id = ?3 AND deleted_at IS NULL",
-            params![version, stamp, task_id],
+            params![name, stamp, task_id],
         )?;
         if changed == 0 {
             return Err(RepositoryError::NotFound("Task"));
@@ -805,7 +948,7 @@ impl Database {
         let connection = self.connection()?;
         let stamp = now();
         let changed = connection.execute(
-            "UPDATE tasks SET release_version = NULL, updated_at = ?1
+            "UPDATE tasks SET release_name = NULL, updated_at = ?1
              WHERE id = ?2 AND deleted_at IS NULL",
             params![stamp, task_id],
         )?;
@@ -815,13 +958,13 @@ impl Database {
         Ok(())
     }
 
-    pub fn tag_folder_release(&self, folder_id: &str, version: &str) -> Result<()> {
+    pub fn tag_folder_release(&self, folder_id: &str, name: &str) -> Result<()> {
         let connection = self.connection()?;
         let stamp = now();
         let changed = connection.execute(
-            "UPDATE folders SET release_version = ?1, updated_at = ?2
+            "UPDATE folders SET release_name = ?1, updated_at = ?2
              WHERE id = ?3 AND deleted_at IS NULL",
-            params![version, stamp, folder_id],
+            params![name, stamp, folder_id],
         )?;
         if changed == 0 {
             return Err(RepositoryError::NotFound("Folder"));
@@ -833,7 +976,7 @@ impl Database {
         let connection = self.connection()?;
         let stamp = now();
         let changed = connection.execute(
-            "UPDATE folders SET release_version = NULL, updated_at = ?1
+            "UPDATE folders SET release_name = NULL, updated_at = ?1
              WHERE id = ?2 AND deleted_at IS NULL",
             params![stamp, folder_id],
         )?;

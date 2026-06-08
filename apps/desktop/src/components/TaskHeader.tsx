@@ -18,7 +18,9 @@ import {
   Pencil,
   Play,
   Plus,
+  Tag,
   Trash2,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -69,7 +71,7 @@ import { formatDuration, parseDuration } from "@/lib/duration";
 import { openExternalUrl } from "@/lib/openExternal";
 import { STATUS_DOT, STATUS_LABEL, STATUS_ORDER } from "@/lib/status";
 import { copyTaskSummary as copyTaskSummaryToClipboard } from "@/lib/taskSummary";
-import { type Task, type TaskQuickLink, type TaskStatus } from "@/lib/types";
+import { type Release, type Task, type TaskQuickLink, type TaskStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -92,6 +94,9 @@ interface Props {
   onStatusChange?: (status: TaskStatus) => Promise<void>;
   onDelete?: (taskId: string) => Promise<void>;
   onUpdate: (task: Task) => Promise<void>;
+  onTagRelease?: (name: string) => Promise<void>;
+  onRemoveReleaseTag?: () => Promise<void>;
+  releases?: Release[];
 }
 
 const TITLE_MAX_LENGTH = 140;
@@ -116,6 +121,9 @@ export function TaskHeader({
   onStatusChange,
   onDelete,
   onUpdate,
+  onTagRelease,
+  onRemoveReleaseTag,
+  releases,
 }: Props) {
   const [titleDraft, setTitleDraft] = useState<string | null>(null);
   const [titleState, setTitleState] = useState<"idle" | "saving" | "error">(
@@ -130,6 +138,7 @@ export function TaskHeader({
   const [estimateOpen, setEstimateOpen] = useState(false);
   const [quickLinkOpen, setQuickLinkOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
+  const [releaseOpen, setReleaseOpen] = useState(false);
   const [editingQuickLink, setEditingQuickLink] =
     useState<TaskQuickLink | null>(null);
   const titleInput = useRef<HTMLInputElement>(null);
@@ -455,6 +464,85 @@ export function TaskHeader({
                 : undefined
             }
           />
+          {(onTagRelease || task.releaseName || releases?.length) && (
+            <Popover onOpenChange={setReleaseOpen} open={releaseOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  aria-label={
+                    task.releaseName
+                      ? `Release: ${releases?.find((r) => r.name === task.releaseName)?.name ?? task.releaseName}. Click to change.`
+                      : "Assign release. Click to choose."
+                  }
+                  className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 text-[11px] text-foreground hover:bg-accent"
+                  type="button"
+                >
+                  <Tag className="size-3 text-muted-foreground" />
+                  <span className="font-medium">
+                    {(() => {
+                      if (!task.releaseName) return "Assign release";
+                      const r = releases?.find(
+                        (x) => x.name === task.releaseName,
+                      );
+                      return r
+                        ? r.version
+                          ? `${r.name} (${r.version})`
+                          : r.name
+                        : task.releaseName;
+                    })()}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-56 p-1">
+                <p className="px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Release
+                </p>
+                {(!releases || releases.length === 0) && (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">
+                    No releases yet
+                  </p>
+                )}
+                {releases?.map((r) => {
+                  const active = task.releaseName === r.name;
+                  return (
+                    <button
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent",
+                        active && "bg-accent",
+                      )}
+                      key={r.name}
+                      onClick={() => {
+                        setReleaseOpen(false);
+                        if (active) {
+                          void onRemoveReleaseTag?.();
+                        } else {
+                          void onTagRelease?.(r.name);
+                        }
+                      }}
+                      type="button"
+                    >
+                      <Tag className="size-3 text-muted-foreground" />
+                      <span className="truncate">
+                        {r.version ? `${r.name} (${r.version})` : r.name}
+                      </span>
+                    </button>
+                  );
+                })}
+                {task.releaseName && (
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm border-t border-border px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                    onClick={() => {
+                      setReleaseOpen(false);
+                      void onRemoveReleaseTag?.();
+                    }}
+                    type="button"
+                  >
+                    <X className="size-3" />
+                    Remove release tag
+                  </button>
+                )}
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <Tooltip>

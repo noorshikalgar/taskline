@@ -2,8 +2,8 @@ mod repository;
 
 use repository::{
     CreateAttachmentInput, CreateEntryInput, CreateFolderInput, CreateQuickLinkInput,
-    CreateReleaseInput, CreateTaskInput, Database, MoveTaskInput, RenameFolderInput,
-    UpdateEntryInput, UpdateQuickLinkInput, UpdateReleaseInput, UpdateTaskInput,
+    CreateTaskInput, Database, MoveTaskInput, RenameFolderInput,
+    UpdateEntryInput, UpdateQuickLinkInput, UpdateTaskInput,
 };
 use serde::Serialize;
 use std::sync::OnceLock;
@@ -311,17 +311,17 @@ fn update_release(
 }
 
 #[tauri::command]
-fn delete_release(database: tauri::State<'_, Database>, version: String) -> Result<(), String> {
-    database.delete_release(&version).map_err(to_message)
+fn delete_release(database: tauri::State<'_, Database>, name: String) -> Result<(), String> {
+    database.delete_release(&name).map_err(to_message)
 }
 
 #[tauri::command]
 fn tag_task_release(
     database: tauri::State<'_, Database>,
     task_id: String,
-    version: String,
+    name: String,
 ) -> Result<(), String> {
-    database.tag_task_release(&task_id, &version).map_err(to_message)
+    database.tag_task_release(&task_id, &name).map_err(to_message)
 }
 
 #[tauri::command]
@@ -336,9 +336,9 @@ fn remove_task_release(
 fn tag_folder_release(
     database: tauri::State<'_, Database>,
     folder_id: String,
-    version: String,
+    name: String,
 ) -> Result<(), String> {
-    database.tag_folder_release(&folder_id, &version).map_err(to_message)
+    database.tag_folder_release(&folder_id, &name).map_err(to_message)
 }
 
 #[tauri::command]

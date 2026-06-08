@@ -10,8 +10,8 @@ import type { Folder as FolderModel, Task, WorkLogEntry } from "@/lib/types";
 afterEach(cleanup);
 
 const folders: FolderModel[] = [
-  { id: "f-1", name: "Backlog", createdAt: "", updatedAt: "" },
-  { id: "f-2", name: "Bugs", createdAt: "", updatedAt: "" },
+  { id: "f-1", name: "Backlog", releaseName: null, createdAt: "", updatedAt: "" },
+  { id: "f-2", name: "Bugs", releaseName: null, createdAt: "", updatedAt: "" },
 ];
 
 const tasks: Task[] = [
@@ -23,6 +23,7 @@ const tasks: Task[] = [
     nextStep: "Review palette",
     estimatedMinutes: null,
     folderId: "f-1",
+    releaseName: null,
     createdAt: "",
     updatedAt: "",
   },
@@ -34,6 +35,7 @@ const tasks: Task[] = [
     nextStep: null,
     estimatedMinutes: null,
     folderId: "f-2",
+    releaseName: null,
     createdAt: "",
     updatedAt: "",
   },
