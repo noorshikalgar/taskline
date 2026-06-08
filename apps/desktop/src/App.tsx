@@ -40,6 +40,7 @@ import { TaskSidebar } from "@/components/TaskSidebar";
 import { Timeline } from "@/components/Timeline";
 import { ShortcutsTab } from "@/components/ShortcutsTab";
 import { WorklogHoursChart } from "@/components/WorklogHoursChart";
+import { Pager } from "@/components/Pager";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -1785,6 +1786,7 @@ function WorklogMetricsView({
   const [selectedDay, setSelectedDay] = useState<string | null>(
     dayKey(new Date().toISOString()),
   );
+  const [logPage, setLogPage] = useState(1);
   const days = useMemo(
     () => buildWorklogDays(range, entries),
     [entries, range],
@@ -1799,9 +1801,29 @@ function WorklogMetricsView({
     (best, day) => (!best || day.minutes > best.minutes ? day : best),
     null,
   );
-  const recentEntries = selectedDay
+  const filteredEntries = selectedDay
     ? entries.filter((entry) => dayKey(entry.occurredAt) === selectedDay)
-    : entries.slice(0, 12);
+    : entries;
+  const recentEntries = filteredEntries;
+
+  // Reset to the first page whenever the user picks a new day or
+  // changes the range. Otherwise the pager can get stuck showing
+  // a page that no longer exists.
+  useEffect(() => {
+    setLogPage(1);
+  }, [selectedDay, range]);
+
+  const LOG_PAGE_SIZE = 8;
+  const totalLogPages = Math.max(
+    1,
+    Math.ceil(filteredEntries.length / LOG_PAGE_SIZE),
+  );
+  const safeLogPage = Math.min(logPage, totalLogPages);
+  const pagedEntries = filteredEntries.slice(
+    (safeLogPage - 1) * LOG_PAGE_SIZE,
+    safeLogPage * LOG_PAGE_SIZE,
+  );
+
   const weekly = aggregateWorklog(entries, "week");
   const monthly = aggregateWorklog(entries, "month");
 
@@ -1911,7 +1933,7 @@ function WorklogMetricsView({
               )}
             </div>
             <div className="divide-y divide-border">
-              {recentEntries.map((entry) => (
+              {pagedEntries.map((entry) => (
                 <div
                   className="grid gap-2 px-4 py-3 text-sm md:grid-cols-[120px_minmax(0,1fr)_auto]"
                   key={entry.id}
@@ -1931,12 +1953,21 @@ function WorklogMetricsView({
                   </span>
                 </div>
               ))}
-              {!recentEntries.length && (
+              {!filteredEntries.length && (
                 <div className="px-4 py-12 text-center text-sm text-muted-foreground">
                   No logged time in this range.
                 </div>
               )}
             </div>
+            <Pager
+              ariaLabel="Worklog entries pagination"
+              className="rounded-b-lg"
+              onPageChange={setLogPage}
+              page={safeLogPage}
+              pageSize={LOG_PAGE_SIZE}
+              totalItems={filteredEntries.length}
+              totalPages={totalLogPages}
+            />
           </div>
         </div>
       </ScrollArea>
