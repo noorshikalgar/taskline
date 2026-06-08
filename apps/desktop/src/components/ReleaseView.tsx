@@ -790,10 +790,10 @@ export function ReleaseView({
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1">
+              <div className="flex min-h-0 flex-1 flex-col">
                 {/* Tasks tab */}
                 {activeTab === "tasks" && (
-                  <ScrollArea className="h-full">
+                  <ScrollArea className="flex-1">
                     <div className="space-y-4 px-6 py-4 pb-8">
                     <div>
                       <div className="relative">
@@ -924,7 +924,7 @@ export function ReleaseView({
 
                 {/* Notes tab */}
                 {activeTab === "notes" && (
-                  <div className="flex h-full min-h-0 flex-col gap-3 px-6 py-4 pb-6">
+                  <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 py-4 pb-6">
                     {/* Editor / preview toggle for narrow layouts */}
                     {!isWideLayout && (
                       <div className="inline-flex h-7 w-fit items-center rounded-md border border-border bg-card/40 p-0.5 text-[11px]">
@@ -961,7 +961,7 @@ export function ReleaseView({
 
                     <div
                       className={cn(
-                        "flex min-h-0 gap-3",
+                        "flex min-h-0 flex-1 gap-3",
                         isWideLayout ? "flex-row" : "flex-col",
                       )}
                     >
