@@ -20,22 +20,22 @@ export function WorklogBars({ title, items }: WorklogBarsProps) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <h2 className="text-sm font-medium">{title}</h2>
-      <div className="mt-4 space-y-2">
+      <div className="mt-4 space-y-2.5">
         {items.slice(-8).map((item) => (
           <div
-            className="grid grid-cols-[74px_minmax(0,1fr)_56px] items-center gap-2 text-xs"
+            className="grid grid-cols-[80px_minmax(0,1fr)_64px] items-center gap-2 text-sm"
             key={item.label}
           >
-            <span className="truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span className="truncate font-mono text-xs uppercase tracking-wider text-muted-foreground">
               {item.label}
             </span>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div className="h-2.5 overflow-hidden rounded-full bg-muted">
               <div
                 className="h-full rounded-full bg-primary"
                 style={{ width: `${Math.max(4, (item.minutes / max) * 100)}%` }}
               />
             </div>
-            <span className="text-right font-mono text-[10px] text-foreground">
+            <span className="text-right font-mono text-xs text-foreground">
               {formatDuration(item.minutes)}
             </span>
           </div>
