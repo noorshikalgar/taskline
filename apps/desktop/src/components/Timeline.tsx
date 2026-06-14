@@ -235,9 +235,10 @@ function CompactTimelineEntry({
 }: EntryProps) {
   const summary = compactSummary(entry.contentMarkdown, attachments.length);
   const canTrash = !PROTECTED_ENTRY_TYPES.has(entry.entryType);
+
   return (
     <li
-      className="group relative grid min-h-8 min-w-0 grid-cols-[16px_68px_78px_42px_minmax(0,1fr)_44px] items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-accent/35"
+      className="group relative grid min-h-7 min-w-0 grid-cols-[16px_62px_66px_34px_minmax(0,1fr)_44px] items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors hover:bg-accent/35"
       data-entry-id={entry.id}
     >
       <div className="relative flex h-full items-center justify-center">
@@ -263,23 +264,23 @@ function CompactTimelineEntry({
 
       <span
         className={cn(
-          "inline-flex h-[18px] min-w-0 items-center justify-center rounded border px-1.5 font-mono text-[9px] font-medium uppercase tracking-[0.04em]",
+          "inline-flex h-[17px] min-w-0 items-center justify-center rounded border px-1.5 font-mono text-[9px] font-medium uppercase tracking-[0.03em]",
           TYPE_TOKEN[entry.entryType],
         )}
       >
         <span className="truncate">{ENTRY_LABELS[entry.entryType]}</span>
       </span>
 
-      <span className="flex min-w-0 items-center">
+      <span className="flex min-w-0 items-center justify-start">
         {entry.durationMinutes != null && entry.durationMinutes > 0 ? (
           <span
             aria-label={`Time spent ${formatDuration(entry.durationMinutes)}`}
-            className="truncate font-mono text-[10px] text-foreground/80"
+            className="inline-flex h-4 max-w-full items-center rounded bg-muted/55 px-1.5 font-mono text-[9px] text-foreground/75"
           >
             {formatDuration(entry.durationMinutes)}
           </span>
         ) : attachments.length > 0 && summary.hasText ? (
-          <span className="font-mono text-[10px] text-muted-foreground">
+          <span className="font-mono text-[9px] text-muted-foreground">
             image
           </span>
         ) : null}
@@ -287,7 +288,7 @@ function CompactTimelineEntry({
 
       <span
         className={cn(
-          "min-w-0 truncate text-xs",
+          "min-w-0 truncate text-xs leading-5",
           summary.hasText ? "text-foreground" : "text-muted-foreground",
         )}
         title={summary.text}
@@ -335,9 +336,6 @@ function TimelineEntry({
   const [content, setContent] = useState(entry.contentMarkdown);
   const [expanded, setExpanded] = useState(false);
   const [viewingImage, setViewingImage] = useState<Attachment | null>(null);
-  const [linkMetadata, setLinkMetadata] = useState<
-    Record<string, LinkMetadata | null>
-  >({});
 
   async function save() {
     await onEdit(entry.id, entry.entryType, content, entry.visibility);
@@ -347,37 +345,9 @@ function TimelineEntry({
   const edited = entry.updatedAt !== entry.createdAt;
   const long = isLongEntry(entry.contentMarkdown);
   const links = extractLinkPreviews(entry.contentMarkdown);
+  const linkMetadata = useLinkMetadata(links);
   const canEdit = !SYSTEM_FACT_ENTRY_TYPES.has(entry.entryType);
   const canTrash = !PROTECTED_ENTRY_TYPES.has(entry.entryType);
-
-  useEffect(() => {
-    let cancelled = false;
-    const missing = links.filter((link) => !(link.url in linkMetadata));
-    if (!missing.length) return;
-
-    for (const link of missing) {
-      void api
-        .fetchLinkPreview(link.url)
-        .then((metadata) => {
-          if (cancelled) return;
-          setLinkMetadata((current) => ({
-            ...current,
-            [link.url]: metadata,
-          }));
-        })
-        .catch(() => {
-          if (cancelled) return;
-          setLinkMetadata((current) => ({
-            ...current,
-            [link.url]: null,
-          }));
-        });
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [links, linkMetadata]);
 
   return (
     <li
@@ -463,32 +433,7 @@ function TimelineEntry({
                 long && !expanded && "markdown--collapsed",
               )}
             >
-              <ReactMarkdown
-                components={{
-                  a: ({ href, children }) => (
-                    <a
-                      href={safeExternalUrl(href) ?? "#"}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        void openExternalUrl(href);
-                      }}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      {children}
-                    </a>
-                  ),
-                  img: ({ alt }) => (
-                    <span className="remote-image-blocked">
-                      Remote image blocked
-                      {alt ? `: ${alt}` : ""}
-                    </span>
-                  ),
-                }}
-                remarkPlugins={[remarkGfm]}
-              >
-                {entry.contentMarkdown}
-              </ReactMarkdown>
+              <EntryMarkdown content={entry.contentMarkdown} />
             </div>
             {long && (
               <button
@@ -637,6 +582,76 @@ function KbdInline({ children }: { children: React.ReactNode }) {
       {children}
     </kbd>
   );
+}
+
+function EntryMarkdown({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      components={{
+        a: ({ href, children }) => (
+          <a
+            href={safeExternalUrl(href) ?? "#"}
+            onClick={(event) => {
+              event.preventDefault();
+              void openExternalUrl(href);
+            }}
+            rel="noreferrer"
+            target="_blank"
+          >
+            {children}
+          </a>
+        ),
+        img: ({ alt }) => (
+          <span className="remote-image-blocked">
+            Remote image blocked
+            {alt ? `: ${alt}` : ""}
+          </span>
+        ),
+      }}
+      remarkPlugins={[remarkGfm]}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}
+
+function useLinkMetadata(
+  links: ReturnType<typeof extractLinkPreviews>,
+): Record<string, LinkMetadata | null> {
+  const [linkMetadata, setLinkMetadata] = useState<
+    Record<string, LinkMetadata | null>
+  >({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const missing = links.filter((link) => !(link.url in linkMetadata));
+    if (!missing.length) return;
+
+    for (const link of missing) {
+      void api
+        .fetchLinkPreview(link.url)
+        .then((metadata) => {
+          if (cancelled) return;
+          setLinkMetadata((current) => ({
+            ...current,
+            [link.url]: metadata,
+          }));
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setLinkMetadata((current) => ({
+            ...current,
+            [link.url]: null,
+          }));
+        });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [links, linkMetadata]);
+
+  return linkMetadata;
 }
 
 function LinkPreviewCard({

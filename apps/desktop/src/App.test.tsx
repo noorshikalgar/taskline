@@ -217,6 +217,9 @@ describe("TaskHeader", () => {
     expect(
       screen.getByRole("group", { name: "Timeline view" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Detailed" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Compact" }));
     expect(onTimelineViewModeChange).toHaveBeenCalledWith("compact");
   });

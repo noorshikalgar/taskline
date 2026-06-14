@@ -105,14 +105,14 @@ interface Props {
 
 const TITLE_MAX_LENGTH = 140;
 const TIMELINE_VIEW_LABEL: Record<TimelineViewMode, string> = {
-  normal: "Normal",
+  normal: "Detailed",
   compact: "Compact",
 };
 const TIMELINE_VIEW_OPTIONS: Array<{
   value: TimelineViewMode;
   label: string;
 }> = [
-  { value: "normal", label: "Normal" },
+  { value: "normal", label: "Detailed" },
   { value: "compact", label: "Compact" },
 ];
 
