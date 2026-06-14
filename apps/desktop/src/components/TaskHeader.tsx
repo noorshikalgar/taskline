@@ -210,7 +210,7 @@ export function TaskHeader({
     task.status !== "done" && task.status !== "archived";
   const isArchived = task.status === "archived";
   return (
-    <header className="flex flex-col gap-2.5 border-b border-border bg-background/85 px-6 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="flex flex-col gap-2.5 bg-card/70 px-6 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 items-start gap-2">
           {titleDraft === null ? (
@@ -426,7 +426,7 @@ export function TaskHeader({
                 return (
                   <button
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent",
+                      "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-0",
                       active && "bg-accent",
                     )}
                     key={status}

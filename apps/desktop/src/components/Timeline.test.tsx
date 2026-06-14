@@ -58,9 +58,7 @@ describe("Timeline", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("heading", { name: "Finding" }),
-    ).toBeInTheDocument();
+    expect(screen.getAllByText("Finding").length).toBeGreaterThan(0);
     expect(screen.getAllByText("github.com").length).toBeGreaterThan(0);
     expect(await screen.findByText("Issue 42")).toBeInTheDocument();
     expect(container.querySelector("img")).toHaveAttribute(
@@ -180,7 +178,7 @@ describe("Timeline", () => {
       />,
     );
 
-    expect(screen.getAllByText("Private").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Private")).not.toBeInTheDocument();
     expect(screen.getByText("[image]")).toBeInTheDocument();
     expect(screen.queryByText("Show more")).not.toBeInTheDocument();
   });

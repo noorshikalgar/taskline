@@ -129,6 +129,181 @@ describe("TaskSidebar", () => {
     expect(screen.getByText("Loose")).toBeInTheDocument();
   });
 
+  it("hides empty folders and shows a no-match message while searching", () => {
+    const folders: Folder[] = [
+      {
+        id: "folder-a",
+        name: "Atlas Notes",
+        releaseName: null,
+        createdAt: "2026-06-05T00:00:00Z",
+        updatedAt: "2026-06-05T00:00:00Z",
+      },
+      {
+        id: "folder-b",
+        name: "Testing",
+        releaseName: null,
+        createdAt: "2026-06-05T00:00:00Z",
+        updatedAt: "2026-06-05T00:00:00Z",
+      },
+    ];
+
+    render(
+      <TaskSidebar
+        folders={folders}
+        onCreate={vi.fn()}
+        onCreateFolder={vi.fn()}
+        onCopyFolder={vi.fn()}
+        onDeleteTask={vi.fn()}
+        onDeleteFolder={vi.fn()}
+        onMoveTask={vi.fn()}
+        onRenameFolder={vi.fn()}
+        onSelect={() => undefined}
+        selectedId={null}
+        tasks={[]}
+      />,
+    );
+
+    const search = screen.getByLabelText("Search tasks");
+    expect(search).toHaveAttribute("autocomplete", "off");
+
+    fireEvent.change(search, { target: { value: "titles" } });
+
+    expect(screen.queryByText("Atlas Notes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Testing")).not.toBeInTheDocument();
+    expect(screen.getByText("No tasks match “titles”.")).toBeInTheDocument();
+  });
+
+  it("shows a compact message inside expanded empty folders", () => {
+    const folders: Folder[] = [
+      {
+        id: "folder-a",
+        name: "Atlas Notes",
+        releaseName: null,
+        createdAt: "2026-06-05T00:00:00Z",
+        updatedAt: "2026-06-05T00:00:00Z",
+      },
+    ];
+
+    render(
+      <TaskSidebar
+        folders={folders}
+        onCreate={vi.fn()}
+        onCreateFolder={vi.fn()}
+        onCopyFolder={vi.fn()}
+        onDeleteTask={vi.fn()}
+        onDeleteFolder={vi.fn()}
+        onMoveTask={vi.fn()}
+        onRenameFolder={vi.fn()}
+        onSelect={() => undefined}
+        selectedId={null}
+        tasks={[]}
+      />,
+    );
+
+    expect(screen.getByText("No tasks in this folder")).toBeInTheDocument();
+  });
+
+  it("limits long search input and truncates the no-match query", () => {
+    render(
+      <TaskSidebar
+        folders={[]}
+        onCreate={vi.fn()}
+        onCreateFolder={vi.fn()}
+        onCopyFolder={vi.fn()}
+        onDeleteTask={vi.fn()}
+        onDeleteFolder={vi.fn()}
+        onMoveTask={vi.fn()}
+        onRenameFolder={vi.fn()}
+        onSelect={() => undefined}
+        selectedId={null}
+        tasks={[]}
+      />,
+    );
+
+    const search = screen.getByLabelText("Search tasks") as HTMLInputElement;
+    const longQuery = "1234567890".repeat(10);
+
+    expect(search).toHaveAttribute("maxlength", "80");
+    fireEvent.change(search, { target: { value: longQuery } });
+
+    expect(search.value).toHaveLength(80);
+    expect(screen.getByText(/No tasks match/)).toHaveTextContent(
+      "No tasks match “1234567890123456789012345678...”.",
+    );
+    expect(screen.queryByText(longQuery)).not.toBeInTheDocument();
+  });
+
+  it("replaces the search icon with a clear action while searching", () => {
+    render(
+      <TaskSidebar
+        folders={[]}
+        onCreate={vi.fn()}
+        onCreateFolder={vi.fn()}
+        onCopyFolder={vi.fn()}
+        onDeleteTask={vi.fn()}
+        onDeleteFolder={vi.fn()}
+        onMoveTask={vi.fn()}
+        onRenameFolder={vi.fn()}
+        onSelect={() => undefined}
+        selectedId={null}
+        tasks={[]}
+      />,
+    );
+
+    const search = screen.getByLabelText("Search tasks") as HTMLInputElement;
+    expect(screen.queryByLabelText("Clear search")).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "bug" } });
+    fireEvent.click(screen.getByLabelText("Clear search"));
+
+    expect(search.value).toBe("");
+    expect(screen.queryByLabelText("Clear search")).not.toBeInTheDocument();
+  });
+
+  it("shows matching tasks as flat results without folder rows while searching", () => {
+    const folders: Folder[] = [
+      {
+        id: "folder-a",
+        name: "Atlas Notes",
+        releaseName: null,
+        createdAt: "2026-06-05T00:00:00Z",
+        updatedAt: "2026-06-05T00:00:00Z",
+      },
+    ];
+
+    render(
+      <TaskSidebar
+        folders={folders}
+        onCreate={vi.fn()}
+        onCreateFolder={vi.fn()}
+        onCopyFolder={vi.fn()}
+        onDeleteTask={vi.fn()}
+        onDeleteFolder={vi.fn()}
+        onMoveTask={vi.fn()}
+        onRenameFolder={vi.fn()}
+        onSelect={() => undefined}
+        selectedId={null}
+        tasks={[
+          {
+            ...baseTask,
+            id: "t-1",
+            folderId: "folder-a",
+            title: "Testing Task for Bugs",
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Search tasks"), {
+      target: { value: "testing" },
+    });
+
+    expect(screen.queryByText("Atlas Notes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Active tasks")).not.toBeInTheDocument();
+    expect(screen.getByText("Search results")).toBeInTheDocument();
+    expect(screen.getByText("Testing Task for Bugs")).toBeInTheDocument();
+  });
+
   it("collapses and expands a folder without selecting a task", () => {
     const select = vi.fn();
     const folders: Folder[] = [
@@ -174,12 +349,16 @@ describe("TaskSidebar", () => {
     fireEvent.click(folder);
 
     expect(folder).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("Testing the UI")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Testing the UI").closest('[aria-hidden="true"]'),
+    ).toBeInTheDocument();
     expect(select).not.toHaveBeenCalled();
 
     fireEvent.click(folder);
     expect(folder).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Testing the UI")).toBeInTheDocument();
+    expect(
+      screen.getByText("Testing the UI").closest('[aria-hidden="true"]'),
+    ).not.toBeInTheDocument();
   });
 
   it("renames folders from the folder context menu", async () => {
@@ -222,7 +401,7 @@ describe("TaskSidebar", () => {
     );
   });
 
-  it("creates a task directly in a folder from the folder context menu", async () => {
+  it("creates a task directly in a folder from the folder row action", async () => {
     const create = vi.fn().mockResolvedValue(undefined);
     const folders: Folder[] = [
       {
@@ -250,10 +429,12 @@ describe("TaskSidebar", () => {
       />,
     );
 
-    fireEvent.contextMenu(screen.getByText("Backlog"));
-    fireEvent.click(screen.getByText("New task in folder"));
+    fireEvent.click(screen.getByLabelText("New task in this folder"));
 
     await waitFor(() => expect(create).toHaveBeenCalledWith("folder-a"));
+
+    fireEvent.contextMenu(screen.getByText("Backlog"));
+    expect(screen.queryByText("New task in folder")).not.toBeInTheDocument();
   });
 
   it("copies a task summary from the task context menu", async () => {

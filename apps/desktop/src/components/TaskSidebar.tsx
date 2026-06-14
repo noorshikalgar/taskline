@@ -18,7 +18,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { Folder as FolderModel, Release, Task } from "@/lib/types";
-import { STATUS_BG, STATUS_DOT } from "@/lib/status";
+import { STATUS_DOT } from "@/lib/status";
 import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -77,6 +77,8 @@ interface Props {
 }
 
 const UNCATEGORIZED = "__ungrouped__";
+const SEARCH_INPUT_MAX_LENGTH = 80;
+const SEARCH_MESSAGE_MAX_LENGTH = 28;
 
 export function TaskSidebar({
   tasks,
@@ -119,16 +121,18 @@ export function TaskSidebar({
   }, [newFolderDialogRef]);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [openActiveTasks, setOpenActiveTasks] = useState(true);
+  const searchTerm = query.trim();
+  const isSearching = searchTerm.length > 0;
 
   const filtered = useMemo(() => {
-    const term = query.trim().toLowerCase();
+    const term = searchTerm.toLowerCase();
     return tasks.filter((task) => {
       if (!term) return true;
       return `${task.title} ${task.status} ${task.nextStep ?? ""}`
         .toLowerCase()
         .includes(term);
     });
-  }, [tasks, query]);
+  }, [tasks, searchTerm]);
 
   const grouped = useMemo(() => {
     const byFolder = new Map<string, Task[]>();
@@ -210,33 +214,34 @@ export function TaskSidebar({
     }
   }
 
-  const hasAnyContent = filtered.length > 0 || folders.length > 0;
+  const hasAnyContent =
+    filtered.length > 0 || (!isSearching && folders.length > 0);
   const activeTasks = useMemo(
     () => filtered.filter((task) => task.status === "active"),
     [filtered],
   );
+  const noResultsQuery = formatSearchMessageQuery(searchTerm);
 
   return (
-    <aside className="flex h-full w-full flex-col border-r border-border bg-card text-card-foreground">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
+    <aside className="flex h-full w-full flex-col bg-card/95 text-card-foreground">
+      <div className="flex items-center justify-between gap-2 px-3.5 pb-3 pt-5">
+        <div className="flex min-w-0 items-center gap-2 text-foreground/85">
+          <ListTodo className="size-4 shrink-0 text-current" strokeWidth={1.75} />
+          <span className="truncate text-sm font-medium text-current">
             Tasks
           </span>
-          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-foreground">
-            {tasks.length}
-          </span>
         </div>
-        <div className="flex items-center gap-0.5">
+        <div className="flex shrink-0 items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 aria-label="New folder"
+                className="size-7 text-muted-foreground hover:bg-accent/70 hover:text-foreground"
                 onClick={openCreateFolderDialog}
                 size="icon-sm"
                 variant="ghost"
               >
-                <FolderPlus />
+                <FolderPlus strokeWidth={1.75} />
               </Button>
             </TooltipTrigger>
             <TooltipContent>New folder</TooltipContent>
@@ -245,12 +250,13 @@ export function TaskSidebar({
             <TooltipTrigger asChild>
               <Button
                 aria-label="New task"
+                className="size-7 text-muted-foreground hover:bg-accent/70 hover:text-foreground"
                 disabled={creating}
                 onClick={() => void handleCreate()}
                 size="icon-sm"
                 variant="ghost"
               >
-                <Plus />
+                <Plus strokeWidth={1.75} />
               </Button>
             </TooltipTrigger>
             <TooltipContent>New task</TooltipContent>
@@ -258,14 +264,36 @@ export function TaskSidebar({
         </div>
       </div>
 
-      <div className="border-b border-border/60 p-3">
+      <div className="px-3.5 pb-4">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          {query ? (
+            <button
+              aria-label="Clear search"
+              className="absolute right-1.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              onClick={() => setQuery("")}
+              type="button"
+            >
+              <X className="size-3.5" strokeWidth={1.75} />
+            </button>
+          ) : (
+            <Search
+              className="pointer-events-none absolute right-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/80"
+              strokeWidth={1.75}
+            />
+          )}
           <Input
             aria-label="Search tasks"
-            className="h-7 pl-7 text-xs"
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search tasks"
+            autoCapitalize="none"
+            autoComplete="off"
+            autoCorrect="off"
+            className="h-9 rounded-md border-border/80 bg-background/35 pl-3 pr-8 text-sm text-foreground shadow-inner shadow-black/5 placeholder:text-muted-foreground/75 focus-visible:border-ring/70"
+            maxLength={SEARCH_INPUT_MAX_LENGTH}
+            name="devthread-task-search"
+            onChange={(event) =>
+              setQuery(event.target.value.slice(0, SEARCH_INPUT_MAX_LENGTH))
+            }
+            placeholder="Search tasks..."
+            spellCheck={false}
             value={query}
           />
         </div>
@@ -276,41 +304,39 @@ export function TaskSidebar({
           aria-label="Tasks"
           className="flex w-full min-w-0 flex-col overflow-hidden"
         >
-          {!!activeTasks.length && (
+          {!isSearching && !!activeTasks.length && (
             <section
               aria-label="Active tasks"
-              className="flex min-w-0 flex-col overflow-hidden border-b border-border/60"
+              className="flex min-w-0 flex-col overflow-hidden px-3.5 pb-3"
             >
               <button
                 aria-expanded={openActiveTasks}
-                className="flex min-w-0 items-center gap-1 px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/30 hover:text-foreground"
+                className="flex min-w-0 items-center gap-1 py-1 text-left text-[11px] font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => setOpenActiveTasks((open) => !open)}
                 type="button"
               >
                 <ChevronRight
                   className={cn(
-                    "size-3 transition-transform duration-150 ease-out",
+                    "size-3.5 transition-transform duration-150 ease-out",
                     openActiveTasks && "rotate-90",
                   )}
                 />
                 <span className="min-w-0 flex-1 truncate">Active tasks</span>
-                <span className="ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded border border-border bg-muted/70 px-1 font-mono text-[10px] text-muted-foreground">
-                  {activeTasks.length}
-                </span>
               </button>
               {openActiveTasks && (
-                <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden px-2 pb-2">
+                <div className="flex min-w-0 flex-col gap-px overflow-hidden pt-1">
                   {activeTasks.map((task) => (
                     <button
                       className={cn(
-                        "min-w-0 rounded-sm border border-transparent px-2 py-1 text-left text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+                        "flex h-6 min-w-0 items-center gap-2 rounded px-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/45 hover:text-foreground",
                         selectedId === task.id &&
-                          "border-border bg-accent/50 text-foreground",
+                          "bg-accent/70 text-foreground",
                       )}
                       key={task.id}
                       onClick={() => onSelect(task.id)}
                       type="button"
                     >
+                      <TaskStatusDot status={task.status} />
                       <EllipsisTooltip
                         className="w-full truncate"
                         text={task.title}
@@ -322,31 +348,50 @@ export function TaskSidebar({
             </section>
           )}
 
-          <div className="flex min-w-0 flex-col gap-2 overflow-hidden px-2 py-2">
-            {folders.map((folder) => (
-              <FolderGroup
-                collapsed={collapsedFolderIds.has(folder.id)}
-                folder={folder}
-                folders={folders}
-                key={folder.id}
-                onCopyFolder={onCopyFolder}
-                onCreate={onCreate}
-                onDeleteFolder={setFolderToDelete}
-                onMove={handleMove}
-                onDeleteTask={setTaskToDelete}
-                onRemoveFolderRelease={onRemoveFolderRelease}
-                onRemoveTaskRelease={onRemoveTaskRelease}
-                onRenameFolder={openRenameFolderDialog}
-                onSelect={onSelect}
-                onTagFolderRelease={onTagFolderRelease}
-                onTagTaskRelease={onTagTaskRelease}
-                onToggleFolder={toggleFolder}
-                releases={releases}
-                selectedId={selectedId}
-                tasks={grouped.get(folder.id) ?? []}
-              />
-            ))}
-            {grouped.get(UNCATEGORIZED)?.length ? (
+          <div className="flex min-w-0 flex-col gap-px overflow-hidden px-3.5 pb-3">
+            <div className="px-0.5 pb-1 text-[11px] font-medium text-muted-foreground">
+              {isSearching ? "Search results" : "All Tasks"}
+            </div>
+            {isSearching
+              ? filtered.map((task) => (
+                  <TaskRow
+                    folders={folders}
+                    grouped={false}
+                    key={task.id}
+                    onMove={handleMove}
+                    onDeleteTask={setTaskToDelete}
+                    onRemoveTaskRelease={onRemoveTaskRelease}
+                    onSelect={onSelect}
+                    onTagTaskRelease={onTagTaskRelease}
+                    releases={releases}
+                    selected={selectedId === task.id}
+                    task={task}
+                  />
+                ))
+              : folders.map((folder) => (
+                  <FolderGroup
+                    collapsed={collapsedFolderIds.has(folder.id)}
+                    folder={folder}
+                    folders={folders}
+                    key={folder.id}
+                    onCopyFolder={onCopyFolder}
+                    onCreate={onCreate}
+                    onDeleteFolder={setFolderToDelete}
+                    onMove={handleMove}
+                    onDeleteTask={setTaskToDelete}
+                    onRemoveFolderRelease={onRemoveFolderRelease}
+                    onRemoveTaskRelease={onRemoveTaskRelease}
+                    onRenameFolder={openRenameFolderDialog}
+                    onSelect={onSelect}
+                    onTagFolderRelease={onTagFolderRelease}
+                    onTagTaskRelease={onTagTaskRelease}
+                    onToggleFolder={toggleFolder}
+                    releases={releases}
+                    selectedId={selectedId}
+                    tasks={grouped.get(folder.id) ?? []}
+                  />
+                ))}
+            {!isSearching && grouped.get(UNCATEGORIZED)?.length ? (
               <FolderGroup
                 folder={null}
                 folders={folders}
@@ -371,9 +416,11 @@ export function TaskSidebar({
 
           {!hasAnyContent && (
             <div className="flex flex-col items-center gap-2 px-2 py-8 text-center text-xs text-muted-foreground">
-              <ListTodo className="size-5 opacity-60" />
-              {query.trim() ? (
-                <span>No tasks match “{query.trim()}”.</span>
+              <ListTodo className="size-5 opacity-60" strokeWidth={1.75} />
+              {searchTerm ? (
+                <span className="max-w-full truncate">
+                  No tasks match “{noResultsQuery}”.
+                </span>
               ) : (
                 <>
                   <span>No tasks yet.</span>
@@ -476,38 +523,45 @@ function FolderGroup({
   const open = grouped ? !collapsed : true;
   const FolderIcon = open ? FolderOpen : Folder;
   return (
-    <section className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
+    <section className="flex min-w-0 flex-col gap-px overflow-hidden">
       {folder && (
         <ContextMenu>
           <ContextMenuTrigger asChild>
-            <button
-              aria-expanded={open}
-              className="group/folder flex min-w-0 items-center gap-1 rounded px-1 py-1 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-              onClick={() => onToggleFolder(folder.id)}
-              type="button"
-            >
-              <ChevronRight
-                className={cn(
-                  "size-3 transition-transform duration-150 ease-out",
-                  open && "rotate-90",
-                )}
-              />
-              <FolderIcon className="size-3 transition-transform duration-150 ease-out group-hover/folder:scale-105" />
-              <EllipsisTooltip
-                className="min-w-0 flex-1 truncate"
-                text={folder.name}
-              />
-              <span className="ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded border border-border bg-muted/70 px-1 font-mono text-[10px] text-muted-foreground group-hover/folder:text-foreground">
-                {tasks.length}
-              </span>
-            </button>
+            <div className="group/folder flex h-7 min-w-0 items-center rounded text-sm text-muted-foreground transition-colors hover:bg-accent/45 hover:text-foreground">
+              <button
+                aria-expanded={open}
+                className="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 text-left"
+                onClick={() => onToggleFolder(folder.id)}
+                type="button"
+              >
+                <FolderIcon
+                  className="size-3.5 shrink-0 text-muted-foreground/90 transition-colors duration-150 ease-out group-hover/folder:text-foreground"
+                  strokeWidth={1.75}
+                />
+                <EllipsisTooltip
+                  className="min-w-0 flex-1 truncate"
+                  text={folder.name}
+                />
+              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    aria-label="New task in this folder"
+                    className="mr-1 flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover/folder:opacity-100"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void onCreate(folder.id);
+                    }}
+                    type="button"
+                  >
+                    <Plus className="size-3.5" strokeWidth={1.75} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>New task in {folder.name}</TooltipContent>
+              </Tooltip>
+            </div>
           </ContextMenuTrigger>
           <ContextMenuContent className="w-44">
-            <ContextMenuItem onSelect={() => void onCreate(folder.id)}>
-              <Plus className="size-3.5 text-muted-foreground" />
-              New task in folder
-            </ContextMenuItem>
-            <ContextMenuSeparator />
             <ContextMenuSub>
               <ContextMenuSubTrigger
                 disabled={tasks.length === 0}
@@ -624,30 +678,45 @@ function FolderGroup({
           </ContextMenuContent>
         </ContextMenu>
       )}
-      {open && (
+      <div
+        aria-hidden={grouped ? !open : undefined}
+        className={cn(
+          "grid min-w-0 transition-[grid-template-rows,opacity,transform] duration-150 ease-out motion-reduce:transition-none",
+          open
+            ? "grid-rows-[1fr] translate-y-0 opacity-100"
+            : "pointer-events-none grid-rows-[0fr] -translate-y-0.5 opacity-0",
+          grouped && "ml-4",
+        )}
+      >
         <div
           className={cn(
-            "flex min-w-0 flex-col gap-0.5 overflow-hidden",
-            grouped && "relative ml-[12px] border-l border-border/80 pl-2 pt-1",
+            "flex min-w-0 flex-col gap-px overflow-hidden",
+            grouped && "pt-0.5",
           )}
         >
-          {tasks.map((task) => (
-            <TaskRow
-              folders={folders}
-              grouped={grouped}
-              key={task.id}
-              onMove={onMove}
-              onDeleteTask={onDeleteTask}
-              onRemoveTaskRelease={onRemoveTaskRelease}
-              onSelect={onSelect}
-              onTagTaskRelease={onTagTaskRelease}
-              releases={releases}
-              selected={selectedId === task.id}
-              task={task}
-            />
-          ))}
+          {tasks.length === 0 && grouped ? (
+            <div className="h-6 truncate px-1.5 text-xs leading-6 text-muted-foreground/70">
+              No tasks in this folder
+            </div>
+          ) : (
+            tasks.map((task) => (
+              <TaskRow
+                folders={folders}
+                grouped={grouped}
+                key={task.id}
+                onMove={onMove}
+                onDeleteTask={onDeleteTask}
+                onRemoveTaskRelease={onRemoveTaskRelease}
+                onSelect={onSelect}
+                onTagTaskRelease={onTagTaskRelease}
+                releases={releases}
+                selected={selectedId === task.id}
+                task={task}
+              />
+            ))
+          )}
         </div>
-      )}
+      </div>
     </section>
   );
 }
@@ -900,42 +969,22 @@ function TaskRow({
         <Button
           aria-current={selected ? "page" : undefined}
           className={cn(
-            "group/task h-auto w-full min-w-0 justify-start gap-2 overflow-hidden rounded-md px-2 py-1.5 text-left shadow-none",
-            grouped &&
-              "relative before:absolute before:left-[-7px] before:top-1/2 before:h-px before:w-1.5 before:bg-border/80",
+            "group/task h-7 w-full min-w-0 justify-start gap-2 overflow-hidden rounded px-1.5 text-left text-sm shadow-none",
             selected
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+              ? "bg-accent/70 text-foreground"
+              : "text-muted-foreground hover:bg-accent/45 hover:text-foreground",
           )}
           onClick={() => onSelect(task.id)}
           variant="ghost"
         >
-          <span
-            aria-hidden
-            className={cn(
-              "mt-0.5 size-1.5 shrink-0 rounded-full",
-              STATUS_DOT[task.status],
-            )}
+          <TaskStatusDot status={task.status} />
+          <EllipsisTooltip
+            className="w-full flex-1 truncate text-sm font-normal select-text"
+            text={task.title}
           />
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
-            <EllipsisTooltip
-              className="w-full truncate text-[13px] font-medium text-foreground select-text"
-              text={task.title}
-            />
-            <span className="flex min-w-0 items-center text-[10px] text-muted-foreground">
-              <span
-                className={cn(
-                  "inline-flex h-4 shrink-0 items-center rounded px-1 text-[9px] font-medium",
-                  STATUS_BG[task.status],
-                )}
-              >
-                {task.status}
-              </span>
-            </span>
-          </span>
           <span
             aria-label={`Delete ${task.title}`}
-            className="ml-auto hidden h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/task:flex group-hover/task:opacity-100"
+            className="ml-auto hidden size-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/task:flex group-hover/task:opacity-100"
             onClick={(event) => {
               event.stopPropagation();
               onDeleteTask(task);
@@ -1036,6 +1085,20 @@ function TaskRow({
       </ContextMenuContent>
     </ContextMenu>
   );
+}
+
+function TaskStatusDot({ status }: { status: Task["status"] }) {
+  return (
+    <span
+      aria-hidden
+      className={cn("size-2 shrink-0 rounded-full", STATUS_DOT[status])}
+    />
+  );
+}
+
+function formatSearchMessageQuery(query: string) {
+  if (query.length <= SEARCH_MESSAGE_MAX_LENGTH) return query;
+  return `${query.slice(0, SEARCH_MESSAGE_MAX_LENGTH)}...`;
 }
 
 function EllipsisTooltip({

@@ -10,7 +10,6 @@ import {
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,21 +64,6 @@ const ENTRY_LABELS: Record<EntryType, string> = {
   estimate: "Estimate",
 };
 
-const TYPE_BADGE: Record<
-  EntryType,
-  "default" | "secondary" | "outline" | "success" | "warning" | "info"
-> = {
-  progress: "default",
-  next_step: "info",
-  finding: "success",
-  blocker: "warning",
-  decision: "secondary",
-  note: "outline",
-  worklog: "secondary",
-  status: "info",
-  estimate: "secondary",
-};
-
 const TYPE_DOT: Record<EntryType, string> = {
   progress: "bg-sky-500",
   next_step: "bg-sky-500",
@@ -129,17 +113,14 @@ export function Timeline({
   const groups = groupByDate(entries);
 
   return (
-    <section aria-label="Task timeline" className="flex flex-col gap-5 pt-6">
+    <section aria-label="Task timeline" className="flex flex-col gap-5 pt-5">
       {groups.map((group) => (
         <div key={group.label} className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
-            <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            <h2 className="whitespace-nowrap text-xs font-medium text-muted-foreground">
               {group.label}
             </h2>
-            <div className="h-px flex-1 bg-border" />
-            <span className="font-mono text-[10px] text-muted-foreground/70">
-              {group.items.length}
-            </span>
+            <div className="min-w-0 flex-1 border-t border-dashed border-border/80" />
           </div>
           <ol className={cn("flex flex-col", compact ? "gap-0" : "gap-1")}>
             {group.items.map((entry) => (
@@ -198,7 +179,7 @@ function CompactTimelineEntry({ entry, attachments }: EntryProps) {
   const summary = compactSummary(entry.contentMarkdown, attachments.length);
   return (
     <li
-      className="group relative grid min-w-0 grid-cols-[20px_minmax(92px,auto)_minmax(0,1fr)] items-center gap-2 rounded-sm py-1.5 transition-colors hover:bg-accent/40"
+      className="group relative grid min-w-0 grid-cols-[16px_minmax(78px,auto)_minmax(0,1fr)] items-center gap-2 rounded-sm py-1.5 transition-colors hover:bg-accent/40"
       data-entry-id={entry.id}
     >
       <div className="relative flex h-full justify-center">
@@ -223,21 +204,8 @@ function CompactTimelineEntry({ entry, attachments }: EntryProps) {
       </time>
 
       <div className="flex min-w-0 items-center gap-1.5 text-xs">
-        <Badge
-          className="h-4 shrink-0 px-1 text-[9px] font-medium uppercase tracking-wider"
-          variant={TYPE_BADGE[entry.entryType]}
-        >
+        <span className="inline-flex h-4 shrink-0 items-center rounded bg-muted/60 px-1.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
           {ENTRY_LABELS[entry.entryType]}
-        </Badge>
-        <span
-          className={cn(
-            "inline-flex h-4 shrink-0 items-center rounded-md border border-border bg-background px-1.5 text-[10px] font-medium",
-            entry.visibility === "report"
-              ? "text-foreground"
-              : "text-muted-foreground",
-          )}
-        >
-          {entry.visibility === "report" ? "Report" : "Private"}
         </span>
         {entry.durationMinutes != null && entry.durationMinutes > 0 && (
           <span
@@ -328,11 +296,11 @@ function TimelineEntry({
   return (
     <li
       className={cn(
-        "group relative grid grid-cols-[20px_48px_minmax(0,1fr)_auto] gap-2 rounded-md px-0 py-3 transition-colors hover:bg-accent/40",
+        "group relative grid grid-cols-[16px_minmax(0,1fr)] gap-2 rounded-md py-3 pr-1 transition-colors hover:bg-accent/35",
       )}
       data-entry-id={entry.id}
     >
-      <div className="relative flex justify-center pt-1.5">
+      <div className="relative flex justify-center pt-[7px]">
         <span
           aria-hidden
           className={cn(
@@ -342,47 +310,22 @@ function TimelineEntry({
         />
         <span
           aria-hidden
-          className="absolute top-4 bottom-[-1.25rem] w-px bg-border group-last:hidden"
+          className="absolute top-[18px] bottom-[-1.25rem] w-px border-l border-dashed border-border/80 group-last:hidden"
         />
       </div>
 
-      <time
-        className="pt-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
-        dateTime={entry.occurredAt}
-      >
-        {formatTime(entry.occurredAt)}
-      </time>
-
-      <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-2 pr-8">
         <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-          <Badge
-            className="h-5 min-w-[52px] justify-center px-2 text-[10px] font-medium uppercase tracking-wider"
-            variant={TYPE_BADGE[entry.entryType]}
-          >
+          <span className="inline-flex h-5 items-center rounded bg-muted/60 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             {ENTRY_LABELS[entry.entryType]}
-          </Badge>
-          <span
-            className={cn(
-              "inline-flex h-5 min-w-[52px] items-center justify-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] font-medium",
-              entry.visibility === "report"
-                ? "text-foreground"
-                : "text-muted-foreground",
-            )}
-          >
-            {entry.visibility === "report" ? "Report eligible" : "Private"}
           </span>
           {entry.durationMinutes != null && entry.durationMinutes > 0 && (
             <span
               aria-label={`Time spent ${formatDuration(entry.durationMinutes)}`}
-              className="inline-flex h-5 min-w-[48px] items-center justify-center gap-1 rounded-md border border-border bg-background px-2 font-mono text-[10px] text-foreground"
+              className="inline-flex h-5 min-w-[48px] items-center justify-center gap-1 rounded bg-muted/60 px-2 font-mono text-[10px] text-foreground"
             >
               <Clock4 className="size-2.5 text-muted-foreground" />
               {formatDuration(entry.durationMinutes)}
-            </span>
-          )}
-          {edited && (
-            <span className="text-[10px] italic text-muted-foreground">
-              edited {formatTime(entry.updatedAt)}
             </span>
           )}
         </div>
@@ -483,7 +426,7 @@ function TimelineEntry({
             )}
 
             {!!links.length && (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="flex flex-col items-start gap-1.5">
                 {links.map((link) => (
                   <LinkPreviewCard
                     key={link.url}
@@ -493,6 +436,16 @@ function TimelineEntry({
                 ))}
               </div>
             )}
+
+            <div className="flex justify-end">
+              <time
+                className="text-[10px] text-muted-foreground/75"
+                dateTime={entry.occurredAt}
+              >
+                {formatMessageTimestamp(entry.occurredAt)}
+                {edited ? ` · edited ${formatTime(entry.updatedAt)}` : ""}
+              </time>
+            </div>
           </>
         )}
 
@@ -537,10 +490,11 @@ function TimelineEntry({
       </div>
 
       {!editing && (
-        <div className="flex items-start gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+        <div className="absolute right-1 top-2.5 flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
           {canEdit && (
             <Button
               aria-label="Edit entry"
+              className="size-6 [&_svg]:size-3.5"
               onClick={() => setEditing(true)}
               size="icon-sm"
               variant="ghost"
@@ -551,6 +505,7 @@ function TimelineEntry({
           {canEdit && (
             <Button
               aria-label="Revision history"
+              className="size-6 [&_svg]:size-3.5"
               onClick={() => void onHistory(entry.id)}
               size="icon-sm"
               variant="ghost"
@@ -561,6 +516,7 @@ function TimelineEntry({
           {canTrash && (
             <Button
               aria-label="Move entry to trash"
+              className="size-6 [&_svg]:size-3.5"
               onClick={() => void onTrash(entry.id)}
               size="icon-sm"
               variant="ghost"
@@ -597,13 +553,12 @@ function LinkPreviewCard({
   metadata: LinkMetadata | null | undefined;
 }) {
   const title = metadata?.title || link.host;
-  const site = metadata?.siteName || link.host;
   const imageUrl = metadata?.imageUrl;
   const displayUrl = metadata?.url || link.url;
 
   return (
     <a
-      className="group/link flex min-w-0 flex-col overflow-hidden rounded-md border border-border bg-muted/40 transition-colors hover:border-foreground/30 hover:bg-accent"
+      className="group/link flex min-h-12 w-full max-w-[520px] min-w-0 items-center gap-2 rounded-md bg-muted/35 px-2 py-1.5 text-left transition-colors hover:bg-accent/70"
       href={safeExternalUrl(link.url) ?? "#"}
       onClick={(event) => {
         event.preventDefault();
@@ -612,32 +567,24 @@ function LinkPreviewCard({
       rel="noreferrer"
       target="_blank"
     >
-      <span className="relative flex aspect-[16/9] w-full items-center justify-center overflow-hidden border-b border-border bg-secondary">
-        {imageUrl ? (
+      {imageUrl && (
+        <span className="flex size-11 shrink-0 overflow-hidden rounded bg-secondary">
           <img
             alt=""
             className="h-full w-full object-cover transition-transform duration-200 group-hover/link:scale-[1.03]"
             loading="lazy"
             src={imageUrl}
           />
-        ) : (
-          <span className="px-3 text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            {site}
-          </span>
-        )}
-        <ExternalLink className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-80" />
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-1 px-3 py-2.5">
-        <span className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          {site}
         </span>
-        <span className="line-clamp-2 min-h-10 text-xs font-medium leading-5 text-foreground">
+      )}
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate text-xs font-medium leading-5 text-foreground">
           {title}
         </span>
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="block truncate text-[10px] leading-4 text-muted-foreground">
-              {displayUrl}
+              {formatShortUrl(displayUrl)}
             </span>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-sm break-all">
@@ -645,6 +592,7 @@ function LinkPreviewCard({
           </TooltipContent>
         </Tooltip>
       </span>
+      <ExternalLink className="size-3.5 shrink-0 text-muted-foreground opacity-70" />
     </a>
   );
 }
@@ -663,6 +611,13 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function formatMessageTimestamp(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 function formatCompactDateTime(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -670,6 +625,16 @@ function formatCompactDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function formatShortUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const path = `${url.pathname}${url.search}`.replace(/\/$/, "");
+    return `${url.hostname}${path || ""}`;
+  } catch {
+    return value.replace(/^https?:\/\//, "");
+  }
 }
 
 function compactSummary(content: string, attachmentCount: number) {
@@ -729,14 +694,26 @@ function dateLabel(value: string): string {
   const diffDays = Math.round(
     (startOfToday.getTime() - startOfEntry.getTime()) / 86_400_000,
   );
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
+  const shortDate = new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(date.getFullYear() !== today.getFullYear()
+      ? { year: "numeric" as const }
+      : {}),
+  }).format(date);
+  if (diffDays === 0) return `Today, ${shortDate}`;
+  if (diffDays === 1) return `Yesterday, ${shortDate}`;
   if (diffDays > 1 && diffDays < 7) {
-    return new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(date);
+    return `${new Intl.DateTimeFormat(undefined, {
+      weekday: "long",
+    }).format(date)}, ${shortDate}`;
   }
   return new Intl.DateTimeFormat(undefined, {
     weekday: "long",
-    month: "long",
+    month: "short",
     day: "numeric",
+    ...(date.getFullYear() !== today.getFullYear()
+      ? { year: "numeric" as const }
+      : {}),
   }).format(date);
 }

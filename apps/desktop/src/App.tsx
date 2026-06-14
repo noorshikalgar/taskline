@@ -7,11 +7,11 @@ import {
   Copy,
   Download,
   ExternalLink,
-  Filter,
   GripVertical,
   Info,
   ListTodo,
   Moon,
+  MoreHorizontal,
   RefreshCw,
   RotateCcw,
   Search,
@@ -2916,7 +2916,7 @@ function ThreadColumn({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-background/45 px-6 py-2.5">
+      <div className="flex flex-wrap items-center gap-2 bg-card/45 px-6 py-2.5">
         <div className="relative min-w-[220px] max-w-xl flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -2993,7 +2993,10 @@ function ThreadColumn({
                 size="sm"
                 variant={activeMoreFilter ? "secondary" : "ghost"}
               >
-                <Filter className="size-3.5" />
+                <MoreHorizontal
+                  className="size-4 opacity-80"
+                  strokeWidth={1.75}
+                />
                 {activeMoreFilter?.label ?? "More"}
               </Button>
             </DropdownMenuTrigger>

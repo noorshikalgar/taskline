@@ -3,6 +3,7 @@ import {
   CircleCheck,
   CircleDot,
   CircleHelp,
+  Eraser,
   ImagePlus,
   Lightbulb,
   Send,
@@ -125,14 +126,12 @@ function optionMatchesQuery(option: MentionOption, query: string): boolean {
 export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
   const [content, setContent] = useState("");
   const [entryType, setEntryType] = useState<EntryType>("note");
-  const [visibility, setVisibility] = useState<Visibility>("private");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!visibilityToggleRef) return;
-    visibilityToggleRef.current = () =>
-      setVisibility((v) => (v === "private" ? "report" : "private"));
+    visibilityToggleRef.current = () => undefined;
     return () => {
       visibilityToggleRef.current = null;
     };
@@ -259,6 +258,14 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
     updateMention(value);
   }
 
+  function clearComposerDraft() {
+    setContent("");
+    setImages([]);
+    setError("");
+    setMention({ active: false, query: "", anchor: 0 });
+    requestAnimationFrame(() => textarea.current?.focus());
+  }
+
   function selectMention(option: MentionOption) {
     const cursor = textarea.current?.selectionStart ?? content.length;
     const nextContent = removeMentionTrigger(content, mention.anchor, cursor);
@@ -294,7 +301,7 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
       const submittedContent =
         parsed.content.trim() ||
         `Attached ${images.length === 1 ? "image" : `${images.length} images`}.`;
-      await onSubmit(parsed.entryType, submittedContent, visibility, images);
+      await onSubmit(parsed.entryType, submittedContent, "private", images);
       setContent("");
       setImages([]);
       setEntryType("note");
@@ -392,7 +399,7 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
               onSelect={(event) =>
                 updateMention((event.target as HTMLTextAreaElement).value)
               }
-              placeholder="What happened?  Type @ to switch entry type"
+              placeholder="What's the update?"
               ref={textarea}
               rows={3}
               value={content}
@@ -441,8 +448,8 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
             )}
           </div>
           <p className="px-1 text-[11px] text-muted-foreground">
-            Add an update, finding, blocker, decision, link… Type{" "}
-            <span className="font-mono">@</span> to switch the entry type.
+            Type <span className="font-mono">@</span> to switch entry type.
+            (note, progress, blocker, etc)
           </p>
         </div>
 
@@ -519,21 +526,10 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
                 ))}
               </SelectContent>
             </Select>
-            <Select
-              onValueChange={(value) => setVisibility(value as Visibility)}
-              value={visibility}
-            >
-              <SelectTrigger
-                aria-label="Visibility"
-                className="h-7 w-auto gap-1 px-2 text-xs shadow-none"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="private">Private</SelectItem>
-                <SelectItem value="report">Report eligible</SelectItem>
-              </SelectContent>
-            </Select>
+            <span
+              aria-hidden
+              className="mx-1 h-5 w-px shrink-0 bg-border/70"
+            />
             <input
               accept="image/*"
               className="sr-only"
@@ -545,6 +541,22 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
               ref={fileInput}
               type="file"
             />
+            {(content.trim() || images.length > 0) && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    aria-label="Clear draft"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={clearComposerDraft}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    <Eraser />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Clear draft</TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

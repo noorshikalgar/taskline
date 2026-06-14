@@ -13,11 +13,51 @@ afterEach(() => {
 });
 
 describe("Composer", () => {
+  it("keeps the update placeholder clean and shows the entry type hint", () => {
+    render(<Composer onSubmit={vi.fn()} taskId="task-placeholder" />);
+
+    expect(screen.getByPlaceholderText("What's the update?")).toBeInTheDocument();
+    expect(screen.getByText(/to switch entry type/)).toHaveTextContent(
+      "Type @ to switch entry type. (note, progress, blocker, etc)",
+    );
+  });
+
+  it("keeps entry type menu labels compact", () => {
+    render(<Composer onSubmit={vi.fn()} taskId="task-entry-types" />);
+
+    fireEvent.click(screen.getByLabelText("Entry type"));
+
+    expect(screen.getAllByText("Note").length).toBeGreaterThan(0);
+    expect(screen.getByText("Progress")).toBeInTheDocument();
+    expect(screen.getByText("Blocker")).toBeInTheDocument();
+    expect(screen.queryByText(/general update/)).not.toBeInTheDocument();
+  });
+
+  it("keeps visibility private without showing a visibility control", () => {
+    render(<Composer onSubmit={vi.fn()} taskId="task-visibility" />);
+
+    expect(screen.queryByLabelText("Visibility")).not.toBeInTheDocument();
+    expect(screen.queryByText("Report eligible")).not.toBeInTheDocument();
+  });
+
+  it("shows a clear draft tool when there is content", () => {
+    render(<Composer onSubmit={vi.fn()} taskId="task-clear-draft" />);
+
+    const composer = screen.getByLabelText("What happened?");
+    expect(screen.queryByLabelText("Clear draft")).not.toBeInTheDocument();
+
+    fireEvent.change(composer, { target: { value: "Draft to remove" } });
+    fireEvent.click(screen.getByLabelText("Clear draft"));
+
+    expect(composer).toHaveValue("");
+    expect(screen.queryByLabelText("Clear draft")).not.toBeInTheDocument();
+  });
+
   it("submits with Cmd+Enter and returns focus to the composer", async () => {
     const submit = vi.fn().mockResolvedValue(undefined);
     render(<Composer onSubmit={submit} taskId="task-a" />);
 
-    const composer = screen.getByPlaceholderText(/What happened\?/);
+    const composer = screen.getByLabelText("What happened?");
     fireEvent.change(composer, {
       target: { value: "/finding Durable drafts" },
     });
@@ -39,7 +79,7 @@ describe("Composer", () => {
     const submit = vi.fn().mockRejectedValue(new Error("write failed"));
     render(<Composer onSubmit={submit} taskId="task-b" />);
 
-    const composer = screen.getByPlaceholderText(/What happened\?/);
+    const composer = screen.getByLabelText("What happened?");
     fireEvent.change(composer, { target: { value: "Do not lose this" } });
     fireEvent.keyDown(composer, { key: "Enter", ctrlKey: true });
 
@@ -52,7 +92,7 @@ describe("Composer", () => {
     const submit = vi.fn().mockResolvedValue(undefined);
     render(<Composer onSubmit={submit} taskId="task-image" />);
 
-    const composer = screen.getByPlaceholderText(/What happened\?/);
+    const composer = screen.getByLabelText("What happened?");
     const image = new File(["image-bytes"], "clipboard.png", {
       type: "image/png",
     });
@@ -73,14 +113,14 @@ describe("Composer", () => {
   it("previews pasted URLs without interrupting text entry", () => {
     render(<Composer onSubmit={vi.fn()} taskId="task-link" />);
 
-    fireEvent.change(screen.getByPlaceholderText(/What happened\?/), {
+    fireEvent.change(screen.getByLabelText("What happened?"), {
       target: {
         value: "Review https://github.com/example/devthread/issues/42",
       },
     });
 
     expect(screen.getByText("github.com")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/What happened\?/)).toHaveValue(
+    expect(screen.getByLabelText("What happened?")).toHaveValue(
       "Review https://github.com/example/devthread/issues/42",
     );
   });
@@ -89,7 +129,7 @@ describe("Composer", () => {
     const submit = vi.fn().mockResolvedValue(undefined);
     render(<Composer onSubmit={submit} taskId="task-mention" />);
 
-    const composer = screen.getByPlaceholderText(/What happened\?/);
+    const composer = screen.getByLabelText("What happened?");
     fireEvent.change(composer, {
       target: { value: "shipped @progress the new filter" },
     });
@@ -108,7 +148,7 @@ describe("Composer", () => {
   it("opens all entry types for bare @ and removes the trigger after selection", async () => {
     render(<Composer onSubmit={vi.fn()} taskId="task-picker" />);
 
-    const composer = screen.getByPlaceholderText(/What happened\?/);
+    const composer = screen.getByLabelText("What happened?");
     fireEvent.change(composer, { target: { value: "@" } });
 
     expect(
@@ -132,7 +172,7 @@ describe("Composer", () => {
     try {
       render(<Composer onSubmit={vi.fn()} taskId="task-arrow" />);
 
-      const composer = screen.getByPlaceholderText(/What happened\?/);
+      const composer = screen.getByLabelText("What happened?");
       fireEvent.change(composer, { target: { value: "@" } });
 
       const first = screen.getByRole("option", { name: /Note/ });
