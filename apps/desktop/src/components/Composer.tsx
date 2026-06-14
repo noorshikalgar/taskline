@@ -15,7 +15,6 @@ import {
   KeyboardEvent,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -144,10 +143,6 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
     anchor: 0,
   });
   const [mentionIndex, setMentionIndex] = useState(0);
-  const [mentionPos, setMentionPos] = useState<{
-    left: number;
-    top: number;
-  } | null>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const mentionList = useRef<HTMLDivElement>(null);
@@ -160,60 +155,6 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
       ),
     [mention.query],
   );
-
-  useLayoutEffect(() => {
-    if (!mention.active || !textarea.current) {
-      setMentionPos(null);
-      return;
-    }
-    const ta = textarea.current;
-    const taRect = ta.getBoundingClientRect();
-    const div = document.createElement("div");
-    const style = window.getComputedStyle(ta);
-    for (const prop of [
-      "boxSizing",
-      "paddingTop",
-      "paddingRight",
-      "paddingBottom",
-      "paddingLeft",
-      "fontStyle",
-      "fontVariant",
-      "fontWeight",
-      "fontStretch",
-      "fontSize",
-      "lineHeight",
-      "fontFamily",
-      "textAlign",
-      "letterSpacing",
-      "wordSpacing",
-      "tabSize",
-    ] as const) {
-      div.style[prop] = style[prop];
-    }
-    div.style.position = "absolute";
-    div.style.visibility = "hidden";
-    div.style.whiteSpace = "pre-wrap";
-    div.style.wordWrap = "break-word";
-    div.style.overflowWrap = "break-word";
-    div.style.width = `${ta.clientWidth}px`;
-    div.style.top = `${taRect.top}px`;
-    div.style.left = `${taRect.left}px`;
-    div.textContent = ta.value.substring(0, mention.anchor);
-    const marker = document.createElement("span");
-    marker.textContent = "@";
-    div.appendChild(marker);
-    document.body.appendChild(div);
-    const markerRect = marker.getBoundingClientRect();
-    document.body.removeChild(div);
-    let lineHeight = parseFloat(style.lineHeight);
-    if (!lineHeight) {
-      lineHeight = parseFloat(style.fontSize) * 1.5;
-    }
-    setMentionPos({
-      left: markerRect.left - taRect.left,
-      top: markerRect.top - taRect.top + lineHeight - ta.scrollTop,
-    });
-  }, [mention.active, mention.anchor, content]);
 
   useEffect(() => {
     setContent(localStorage.getItem(draftKey(taskId)) ?? "");
@@ -375,22 +316,24 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
     typeof navigator !== "undefined" &&
     /Mac|iPhone|iPad/i.test(navigator.platform);
   const metaKey = isMac ? "⌘" : "Ctrl";
+  const submitDisabled = saving || (!content.trim() && !images.length);
 
   return (
     <Card
       aria-label="Add work update"
       className={cn(
-        "border-border/60 bg-card transition-shadow",
-        focused && "shadow-md ring-1 ring-ring/30",
+        "overflow-visible border-border/70 bg-card/95 shadow-sm transition-[border-color,box-shadow,background-color]",
+        focused &&
+          "border-[rgba(255,255,255,0.28)] shadow-[0_0_0_1px_rgba(255,255,255,0.05)]",
       )}
     >
-      <CardContent className="space-y-3 p-3">
-        <div className="flex flex-col gap-1">
+      <CardContent className="relative space-y-2 p-2.5">
+        <div className="flex flex-col gap-1.5">
           <div className="relative">
             <Textarea
               aria-label="What happened?"
               autoFocus
-              className="max-h-[220px] min-h-[88px] resize-none overflow-y-auto border-0 bg-transparent p-1 text-sm leading-6 shadow-none focus-visible:ring-0"
+              className="max-h-[190px] min-h-[64px] resize-none overflow-y-auto border-0 bg-transparent px-2 py-1.5 text-sm leading-6 shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-0"
               onBlur={() => setFocused(false)}
               onChange={(event) => changeContent(event.target.value)}
               onFocus={() => setFocused(true)}
@@ -399,18 +342,17 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
               onSelect={(event) =>
                 updateMention((event.target as HTMLTextAreaElement).value)
               }
-              placeholder="What's the update?"
+              placeholder="Type an update, blocker, note, progress..."
               ref={textarea}
-              rows={3}
+              rows={2}
               value={content}
             />
-            {mention.active && filteredOptions.length > 0 && mentionPos && (
+            {mention.active && filteredOptions.length > 0 && (
               <div
                 aria-label="Entry type suggestions"
-                className="absolute z-20 mt-1 w-64 max-h-44 overflow-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+                className="absolute left-2 top-9 z-50 w-80 max-w-[calc(100%-1rem)] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl"
                 ref={mentionList}
                 role="listbox"
-                style={{ left: mentionPos.left, top: mentionPos.top }}
               >
                 {filteredOptions.map((option, index) => {
                   const active = index === mentionIndex;
@@ -419,7 +361,7 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
                     <button
                       aria-selected={active}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-xs",
+                        "flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs",
                         active
                           ? "bg-accent text-accent-foreground"
                           : "hover:bg-accent/60",
@@ -447,10 +389,6 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
               </div>
             )}
           </div>
-          <p className="px-1 text-[11px] text-muted-foreground">
-            Type <span className="font-mono">@</span> to switch entry type.
-            (note, progress, blocker, etc)
-          </p>
         </div>
 
         {!!images.length && (
@@ -503,15 +441,15 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2.5">
-          <div className="flex flex-wrap items-center gap-1">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/55 pt-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <Select
               onValueChange={(value) => setEntryType(value as EntryType)}
               value={entryType}
             >
               <SelectTrigger
                 aria-label="Entry type"
-                className="h-7 w-auto gap-1 px-2 text-xs shadow-none"
+                className="h-7 w-auto gap-1 rounded-md border-0 bg-muted/55 px-2 text-xs font-medium shadow-none hover:bg-muted"
               >
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
@@ -528,7 +466,7 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
             </Select>
             <span
               aria-hidden
-              className="mx-1 h-5 w-px shrink-0 bg-border/70"
+              className="mx-1 h-5 w-px shrink-0 bg-border/60"
             />
             <input
               accept="image/*"
@@ -561,20 +499,38 @@ export function Composer({ taskId, onSubmit, visibilityToggleRef }: Props) {
               <TooltipTrigger asChild>
                 <Button
                   aria-label="Attach images"
+                  className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground [&_svg]:size-3.5"
                   onClick={() => fileInput.current?.click()}
-                  size="icon-sm"
+                  size="sm"
                   variant="ghost"
                 >
                   <ImagePlus />
+                  <span>Attach image</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Attach or paste images</TooltipContent>
             </Tooltip>
+            <span
+              aria-label="Hint: Type @ to change the content type (progress, blocker, etc)"
+              className="inline-flex items-center gap-1 rounded bg-muted/35 px-1.5 py-1 text-[11px] text-muted-foreground"
+            >
+              <span className="font-medium text-muted-foreground/90">
+                Hint:{" "}
+              </span>
+              <span>
+                Type <span className="font-mono text-foreground/75">@</span>{" "}
+                to change the content type
+              </span>
+              <span className="hidden sm:inline">
+                {" "}(progress, blocker, etc)
+              </span>
+            </span>
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                disabled={saving || (!content.trim() && !images.length)}
+                className="h-7 gap-1.5 px-3 text-xs font-medium shadow-sm transition-transform active:scale-[0.98] [&_svg]:size-3.5"
+                disabled={submitDisabled}
                 onClick={() => void submit()}
                 size="sm"
               >

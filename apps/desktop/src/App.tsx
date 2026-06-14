@@ -2101,19 +2101,38 @@ function StatusBar({
   counts: { active: number; planned: number; done: number };
   selectedTask: Task | null;
 }) {
+  const selectedTaskToken = selectedTask?.title.match(/\b[A-Z]{2,}-\d+\b/)?.[0];
+  const selectedTaskTitle =
+    selectedTask && selectedTaskToken
+      ? selectedTask.title.replace(new RegExp(`^${selectedTaskToken}\\s*`), "")
+      : selectedTask?.title;
+
   return (
-    <footer className="flex h-6 shrink-0 select-none items-center justify-between border-t border-border bg-card px-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="text-foreground/80">Local-first</span>
-        <span>v{appVersion}</span>
-        {selectedTask && (
-          <span className="hidden min-w-0 truncate sm:inline">
-            {selectedTask.title}
+    <footer className="flex h-7 shrink-0 select-none items-center justify-between gap-3 border-t border-border bg-card px-3 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="inline-flex items-center gap-1.5 text-foreground/85">
+          <span className="relative flex size-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/45" />
+            <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
           </span>
+          Local-first
+        </span>
+        <span className="text-muted-foreground/80">v{appVersion}</span>
+        {selectedTask && (
+          <>
+            {selectedTaskToken && (
+              <span className="hidden rounded bg-muted/70 px-1.5 py-0.5 text-[10px] text-foreground/80 sm:inline">
+                {selectedTaskToken}
+              </span>
+            )}
+            <span className="hidden min-w-0 truncate text-muted-foreground/90 md:inline">
+              {selectedTaskTitle}
+            </span>
+          </>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-3">
-        <span>Active {counts.active}</span>
+      <div className="flex shrink-0 items-center gap-2.5 text-[10px] sm:text-[11px]">
+        <span className="text-foreground/85">Active {counts.active}</span>
         <span>Todo {counts.planned}</span>
         <span>Done {counts.done}</span>
       </div>

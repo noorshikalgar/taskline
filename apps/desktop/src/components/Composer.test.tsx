@@ -13,13 +13,36 @@ afterEach(() => {
 });
 
 describe("Composer", () => {
-  it("keeps the update placeholder clean and shows the entry type hint", () => {
+  it("shows a command-style placeholder and inline entry type hint", () => {
     render(<Composer onSubmit={vi.fn()} taskId="task-placeholder" />);
 
-    expect(screen.getByPlaceholderText("What's the update?")).toBeInTheDocument();
-    expect(screen.getByText(/to switch entry type/)).toHaveTextContent(
-      "Type @ to switch entry type. (note, progress, blocker, etc)",
-    );
+    expect(
+      screen.getByPlaceholderText("Type an update, blocker, note, progress..."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(
+        "Hint: Type @ to change the content type (progress, blocker, etc)",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Type @ to switch entry type/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("presents image attach as a composer tool", () => {
+    render(<Composer onSubmit={vi.fn()} taskId="task-tools" />);
+
+    expect(
+      screen.getByRole("button", { name: "Attach images" }),
+    ).toHaveTextContent("Attach image");
+  });
+
+  it("keeps the add action compact", () => {
+    render(<Composer onSubmit={vi.fn()} taskId="task-add" />);
+
+    expect(
+      screen.getByRole("button", { name: /Add/i }),
+    ).toBeInTheDocument();
   });
 
   it("keeps entry type menu labels compact", () => {
@@ -154,6 +177,10 @@ describe("Composer", () => {
     expect(
       screen.getByRole("option", { name: /Progress/ }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Decision/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Entry type suggestions")).toHaveClass(
+      "absolute",
+    );
 
     fireEvent.mouseDown(screen.getByRole("option", { name: /Blocker/ }));
 
